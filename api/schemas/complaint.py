@@ -45,6 +45,7 @@ class ComplaintResponse(BaseModel):
     viral_risk_score: Optional[float] = None
     emotion_arc: Optional[dict] = None
     escalation_reason: Optional[str] = None
+    pre_escalate: Optional[bool] = False
     resolution_notes: Optional[str] = None
     updated_at: Optional[datetime] = None
 

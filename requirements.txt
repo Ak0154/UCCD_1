@@ -11,3 +11,4 @@ dotenv
 groq
 langgraph
 apscheduler
+redis

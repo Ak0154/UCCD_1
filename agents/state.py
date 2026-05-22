@@ -1,4 +1,5 @@
 from typing import TypedDict, Optional , List
+from datetime import datetime
 
 class ComplaintState(TypedDict, total=False):
     complaint_id : str
@@ -17,6 +18,8 @@ class ComplaintState(TypedDict, total=False):
     emotion_arc : Optional[dict]
     severity_score : Optional[float]
     sla_tier : Optional[str]
+    priority_tier : Optional[int]
+    sla_deadline : Optional[datetime]
     breach_probability : Optional[float]
     viral_risk_score : Optional[float]
     cluster_id : Optional[str]
