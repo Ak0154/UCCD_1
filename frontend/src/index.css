@@ -63,10 +63,6 @@
     animation: powered-marquee 28s linear infinite;
   }
 
-  .flow-card {
-    animation: flow-rise 3.6s ease-in-out infinite;
-  }
-
   .faq-answer {
     animation: faq-reveal 220ms ease-out both;
   }
@@ -98,11 +94,6 @@
 
   .flow-pulse {
     animation: flow-pulse 2.2s ease-in-out infinite;
-  }
-
-  .shimmer-line {
-    background-size: 200% 100%;
-    animation: shimmer-slide 2s linear infinite;
   }
 
   .flow-float {
@@ -145,19 +136,6 @@
   }
 }
 
-@keyframes flow-rise {
-  0%,
-  100% {
-    transform: translateY(0);
-    border-color: var(--color-border);
-  }
-
-  50% {
-    transform: translateY(-6px);
-    border-color: rgba(0, 255, 178, 0.35);
-  }
-}
-
 @keyframes faq-reveal {
   from {
     opacity: 0;
@@ -176,15 +154,6 @@
   }
   50% {
     box-shadow: 0 0 0 10px rgba(0, 255, 178, 0);
-  }
-}
-
-@keyframes shimmer-slide {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
   }
 }
 

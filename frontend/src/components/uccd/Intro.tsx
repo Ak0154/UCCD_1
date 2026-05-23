@@ -17,7 +17,6 @@ const caseFacts = [
 export function Intro() {
   return (
     <section className="relative overflow-hidden py-24">
-      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-gradient-to-r from-transparent via-accent/25 to-transparent" />
       <Container className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
         <div>
           <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">

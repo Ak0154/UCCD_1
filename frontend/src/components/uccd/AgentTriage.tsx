@@ -10,6 +10,12 @@ const features = [
     output: 'refund dispute',
   },
   {
+    icon: 'EMO',
+    title: 'Emotion Agent',
+    description: 'Detects customer tone and adjusts response temperament for de-escalation.',
+    output: 'angry → calm',
+  },
+  {
     icon: 'SLA',
     title: 'Severity Scorer',
     description: 'Ranks urgency, regulatory exposure, and breach risk before the queue gets noisy.',
@@ -22,6 +28,12 @@ const features = [
     output: 'UPI_FAIL',
   },
   {
+    icon: 'ESC',
+    title: 'Escalation Agent',
+    description: 'Predicts breach probability and flags cases requiring immediate human attention.',
+    output: '72% breach risk',
+  },
+  {
     icon: 'RCA',
     title: 'Root Cause Agent',
     description: 'Finds probable operational causes and turns repeat patterns into action signals.',
@@ -30,8 +42,8 @@ const features = [
 ]
 
 const sideSignals = [
-  ['Emotion', 'angry -> calm'],
-  ['Escalation', '72% breach risk'],
+  ['Severity', 'HIGH / watchlist'],
+  ['Root Cause', 'switch timeout'],
   ['Routing', 'Fraud Ops'],
   ['Draft', 'response ready'],
 ]
@@ -39,7 +51,6 @@ const sideSignals = [
 export function AgentTriage() {
   return (
     <section id="features" className="relative overflow-hidden py-20">
-      <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-gradient-to-b from-transparent via-accent/20 to-transparent" />
       <Container className="flex flex-col items-center gap-12">
         <SectionTitle
           title="Multi-agent triage for real complaint work"
@@ -47,11 +58,11 @@ export function AgentTriage() {
         />
 
         <div className="grid w-full gap-6 lg:grid-cols-[1fr_320px]">
-          <div className="grid border border-border sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid border border-border sm:grid-cols-2 lg:grid-cols-3 bg-border gap-px">
             {features.map((f, i) => (
               <motion.article
                 key={f.title}
-                className={`flex min-h-[260px] flex-col gap-6 p-5 ${i > 0 ? 'border-t border-border sm:border-t-0 sm:border-l' : ''}`}
+                className="flex min-h-[260px] flex-col gap-6 bg-bg p-5"
                 initial={{ opacity: 0, y: 24 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.35 }}

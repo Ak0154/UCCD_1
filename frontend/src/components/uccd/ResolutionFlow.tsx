@@ -15,10 +15,38 @@ import {
   IconShield,
 } from './ui'
 
+function CharReveal({
+  text,
+  baseDelay = 0,
+  charDelay = 0.05,
+}: {
+  text: string
+  baseDelay?: number
+  charDelay?: number
+}) {
+  const chars = useMemo(() => text.split(''), [text])
+
+  return (
+    <>
+      {chars.map((char, i) => (
+        <motion.span
+          key={i}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.12, delay: baseDelay + i * charDelay, ease: 'easeOut' }}
+          style={{ display: char === ' ' ? 'inline' : 'inline' }}
+        >
+          {char === ' ' ? '\u00A0' : char}
+        </motion.span>
+      ))}
+    </>
+  )
+}
+
 const speeds = [
-  ['Slow', 2600],
-  ['Normal', 1700],
-  ['Fast', 950],
+  ['Slow', 1500],
+  ['Normal', 1000],
+  ['Fast', 750],
 ] as const
 
 const seeds = [
@@ -377,7 +405,7 @@ export function ResolutionFlow() {
                       animate={{ opacity: 1, y: 0 }}
                       transition={{
                         duration: 0.3,
-                        delay: 0.08 + rowIdx * 0.06,
+                        delay: 0.06 + rowIdx * 0.08,
                         ease: [0.22, 1, 0.36, 1],
                       }}
                       className={`rounded-lg border border-border bg-bg p-4 ${
@@ -388,7 +416,13 @@ export function ResolutionFlow() {
                         {RowIcon && <RowIcon className="h-3 w-3 text-muted" />}
                         <p className="text-[10px] uppercase tracking-wide text-muted">{label}</p>
                       </div>
-                      <p className="mt-2 text-sm leading-relaxed text-text">{value}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-text">
+                        {activeStep === 2 ? (
+                          value
+                        ) : (
+                          <CharReveal text={value} baseDelay={0.08 + rowIdx * 0.08} charDelay={0.01} />
+                        )}
+                      </p>
                     </motion.div>
                   )
                 })}

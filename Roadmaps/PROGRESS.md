@@ -23,7 +23,7 @@ Source: [Roadmap_Abhineet.html](Roadmap_Abhineet.html)
 ### Week 2 — NLP classifier
 
 - [x] `agents/nlp_classifier.py` — multi-field JSON classification (uses **Groq** + `GROQ_API_KEY`, not Claude/Anthropic as in roadmap)
-- [ ] `type_confidence` populated by classifier (roadmap asks for it; orchestrator merge does not set it from NLP output today)
+- [x] `type_confidence` populated by classifier — `classify_complaint()` returns it (`agents/nlp_classifier.py:54`), `run_nlp()` extracts it (`agents/orchestrator.py:26`), `merge_and_save()` stores it in DB (`agents/orchestrator.py:41`)
 - [ ] Kafka `NLPConsumer` / consume `complaints.inbound` (roadmap); pipeline runs from FastAPI `BackgroundTasks` instead
 
 ### Week 3 — LangGraph orchestrator
@@ -31,31 +31,31 @@ Source: [Roadmap_Abhineet.html](Roadmap_Abhineet.html)
 - [x] `agents/state.py` — `ComplaintState` TypedDict
 - [x] `agents/orchestrator.py` — LangGraph: parallel nodes from `START`, `merge_and_save` → DB + `set_sla_timer` when `sla_tier` set
 - [x] `agents/root_cause_agent.py` — minimal logic (cluster size threshold)
-- [ ] `run_emotion`, `run_dna`, `run_severity`, `run_escalation` — **stubs** (`return {}`)
-- [ ] Publish to Kafka on create + async pipeline only via queue (roadmap)
+- [x] `run_emotion`, `run_dna`, `run_severity`, `run_escalation` — all implemented (Groq + heuristic logic; not stubs)
+- [ ] Publish to Kafka on create + async pipeline only via queue (roadmap); pipeline runs inline (Groq API calls are blocking, not queued)
 
 ### Week 4 — Draft response + WebSocket
 
-- [ ] `services/draft_service.py` — tone-matched draft generation
-- [ ] `GET /api/v1/ai/draft/{complaint_id}`
-- [ ] `POST /api/v1/complaints/{id}/respond` — final response + edit delta + resolve
+- [ ] `services/draft_service.py` — separate file missing (draft logic inline in `api/routes/complaints.py` {line 166})
+- [x] `GET /api/v1/ai/draft/{complaint_id}` — `GET /api/v1/ai/draft/{complaint_id}` in `api/routes/ai.py:30` — delegates to complaints route handler
+- [x] `POST /api/v1/complaints/{id}/respond` — final response + edit delta + resolve (`api/routes/complaints.py:201`); also stored in `respond_and_resolve_complaint()`
 - [x] `api/websocket.py` — `ConnectionManager`, `ws://.../api/v1/ws/supervisor`, `broadcast_event()`
-- [ ] WebSocket message types exactly as roadmap (`breach_predicted`, `breach_occurred`, `cluster_spike`, `agent_overload`); current payloads include `complaint_created`, `complaint_status_changed`, `sla_alert` variants
+- [ ] WebSocket message types exactly as roadmap (`breach_predicted`, `breach_occurred`, `cluster_spike`, `agent_overload`); `breach_occurred` is implemented on TTL expiry (`sla_alert` type in `sla_service.py:178`); `new_complaint`, `complaint_status_changed`, `sla_alert` (50/75/90%) also present — `breach_predicted`, `cluster_spike`, `agent_overload` still missing
+
 
 ### Week 5 — Remaining API surface
 
 - [x] `PUT /api/v1/complaints/{id}/status` with transition validation (roadmap rules differ slightly; repo has explicit `VALID_TRANSITIONS`)
-- [ ] `GET /api/v1/agents/load`
-- [ ] `GET /api/v1/analytics/trends` (and `?window=…`)
-- [ ] `POST /api/v1/simulation/run`
-- [ ] `GET /api/v1/complaints/{id}/history`
-- [ ] `GET /api/v1/ai/translate-preview`
-- [x] `GET /api/v1/dashboard/kpis` (roadmap summary listed `GET /api/v1/kpis`; implemented as `/api/v1/dashboard/kpis`)
-- [ ] CORS `allow_origins` includes `http://localhost:3000` (repo uses `http://localhost:5173`)
+- [x] `GET /api/v1/agents/load` (`api/routes/agents.py`) — active load by department + agent
+- [x] `GET /api/v1/analytics/trends`(`?window=…`) — daily volume + category dist + avg severity + SLA compliance
+- [x] `POST /api/v1/simulation/run` — policy simulation (staffing, volume, policy mode)
+- [x] `GET /api/v1/complaints/{id}/history` — audit timeline events for complaint
+- [x] `GET /api/v1/ai/translate-preview` — Groq-based multi-language translation (`api/routes/ai.py:10`)
+- [x] CORS `allow_origins` includes `http://localhost:3000` AND `http://localhost:5173` (`api/main.py:31`)
 
 ### Week 6 — Integration / polish
 
-- [ ] `scripts/seed_demo.py` — 20 demo complaints
+- [ ] `scripts/seed_demo.py` — 16 demo complaints exist (`scripts/seed_demo.py`, CUST_1001–CUST_1016); roadmap asks for 20; file is runnable and calls `run_pipeline()` per complaint
 - [ ] Request logging middleware
 - [ ] Full E2E timing/logging per agent node as specified
 
@@ -78,12 +78,12 @@ Source: [Roadmap_Akash.html](Roadmap_Akash.html)
 
 ### Weeks 2–5 — ML pipeline + consumers
 
-- [ ] `services/translation_service.py` + `agents/translation_consumer.py`
-- [ ] `agents/dna_agent.py` — embeddings + similarity + clustering + `DNAConsumer`
-- [ ] `agents/severity_agent.py` — weighted score + SLA tier + `SeverityConsumer`
-- [ ] `agents/emotion_agent.py` — arc + slope + `EmotionConsumer`
-- [ ] `agents/escalation_agent.py` — breach prediction + `EscalationConsumer` + `escalations.predicted` topic
-- [ ] `ml/generate_training_data.py`, `ml/train_breach_model.py`, `ml/breach_predictor.pkl`
+- [ ] `services/translation_service.py` (implemented, no `agents/translation_consumer.py`) + `agents/translation_consumer.py` (missing Kafka consumer)
+- [ ] `agents/dna_agent.py` — Groq-based clustering implemented; `DNAConsumer` Kafka consumer wrapper missing
+- [ ] `agents/severity_agent.py` — Groq-based weighted scoring implemented; `SeverityConsumer` Kafka consumer wrapper missing
+- [ ] `agents/emotion_agent.py` — Groq-based sentiment analysis implemented; `EmotionConsumer` Kafka consumer wrapper missing
+- [ ] `agents/escalation_agent.py` — Groq + heuristic breach prediction implemented; `EscalationConsumer` Kafka consumer wrapper missing
+- [ ] `ml/generate_training_data.py`, `ml/train_breach_model.py`, `ml/breach_predictor.pkl` — all missing
 
 ### Week 6 — Integration
 
@@ -164,10 +164,10 @@ Sources: [Roadmap_Pritesh.html](Roadmap_Pritesh.html), [Roadmap_Suryansh.html](R
 
 | Owner | Roughly done | Main gaps |
 |--------|----------------|------------|
-| **Abhineet** | Core API, LangGraph shell, NLP (Groq), WS, dashboard KPIs, escalations list | Stub agents, draft/translate/simulation/history routes, seed script, Kafka |
-| **Akash** | — | Entire Kafka/DB/pgvector + ML agents + translation pipeline |
-| **Hemant** | — | Entire `frontend/` |
-| **Pritesh/Suryansh** | Redis SLA service, partial Docker, demo JWT login | Full compose, User model + RBAC, agent/regulatory services, tests, Makefile, README |
+| **Abhineet** | Core API, NLP/Groq, LangGraph full orchestrator (NLP → emotion → dna → severity → escalation → root-cause → DB), WS, dashboard KPIs, escalations, agents/load, analytics/trends, simulation, history, translate-preview, respond route, CORS (5173+3000), seed script (runable) | `services/draft_service.py` missing as separate file (draft inline), WS message types not matching roadmap (`breach_predicted`/`cluster_spike`/`agent_overload` absent), seed script 16 vs 20 target, Kafka missing, request-log middleware missing, per-node E2E timing missing |
+| **Akash** | — | Entire Kafka (`kafka/` absent), Kafka-based ML agent consumers, db/schema.sql + pgvector, Alembic, `db/connection.py`, `ml/` training pipeline, kafka-based E2E |
+| **Hemant** | — | Entire app-level `frontend/` (only landing page exists); no API client, types, screens, hooks, router |
+| **Pritesh/Suryansh** | Redis SLA engine, JWT login, APScheduler, Dockerfile | Full compose (Kafka/Postgres missing), `Makefile`, `src/config.py`, `api/models/user.py`, `api/auth.py`, RBAC/`require_role`, `services/agent_service.py`, `services/regulatory_service.py`, `tests/`, `README.md` |
 
 ---
 
