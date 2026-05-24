@@ -18,6 +18,9 @@ class Complaint(Base):
 
     raw_text = Column(Text, nullable=False)
     language_code = Column(String, nullable=True)
+    detected_language = Column(String, nullable=True)
+    translated_text = Column(Text, nullable=True)
+    translation_status = Column(String, default="pending")
     voice_transcript = Column(JSONB, nullable=True)
     attachments = Column(JSONB, nullable=True)
     bot_slots = Column(JSONB, nullable=True)

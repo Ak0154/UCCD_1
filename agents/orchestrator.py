@@ -1,6 +1,9 @@
+import asyncio
 import os
+import logging
 import requests
-from langgraph.graph import StateGraph, START , END
+from dotenv import load_dotenv
+from langgraph.graph import StateGraph, START, END
 from agents.state import ComplaintState
 from agents.nlp_classifier import classify_complaint
 from agents.emotion_agent import run_emotion
@@ -8,15 +11,44 @@ from agents.dna_agent import run_dna
 from agents.severity_agent import run_severity
 from agents.escalation_agent import run_escalation
 from agents.root_cause_agent import run_root_cause
+from agents.utils import groq_chat_completion
 from api.db.session import get_db
 from api.models.complaint import Complaint
 from datetime import datetime, timezone, timedelta
 from services.sla_service import set_sla_timer
+from services.translation_service import SarvamTranslationService, TranslationStage
+
+load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
+async def run_translation(
+    state: ComplaintState,
+    translation_service: SarvamTranslationService = None,
+) -> dict:
+    svc = translation_service or SarvamTranslationService()
+    try:
+        result = await svc.translate(
+            text=state["raw_text"],
+            stage=TranslationStage.INBOUND
+        )
+    except Exception as e:
+        logger.error(f"Translation failed in pipeline: {e}")
+        return {
+            "translated_text": state["raw_text"],
+            "detected_language": None,
+            "translation_status": "failed"
+        }
+    return {
+        "translated_text": result["translated_text"],
+        "detected_language": result["detected_language"],
+        "translation_status": result["translation_status"]
+    }
+
 def run_nlp(state: ComplaintState) -> dict:
-    text = state["raw_text"]
+    text = state.get("translated_text") or state["raw_text"]
     result = classify_complaint(text)
     return {
         "complaint_type": result.get("complaint_type"),
@@ -54,6 +86,11 @@ def merge_and_save(state: ComplaintState) -> dict:
         complaint.escalation_reason = state.get("escalation_reason")
 
         complaint.root_cause = state.get("root_cause")
+
+        complaint.detected_language = state.get("detected_language")
+        complaint.translated_text = state.get("translated_text")
+        complaint.translation_status = state.get("translation_status", "pending")
+
         complaint.updated_at = datetime.now(IST)
 
         db.commit()
@@ -66,7 +103,6 @@ def merge_and_save(state: ComplaintState) -> dict:
                     # Generate AI response draft first if not generated
                     ai_draft = complaint.ai_draft
                     if not ai_draft:
-                        from agents.utils import groq_chat_completion
                         prompt = f"""You are a bank customer relations officer at Union Bank of India.
 Generate a professional, personalized response to this complaint:
 "{complaint.raw_text}"
@@ -101,14 +137,14 @@ Tone constraints:
                         "parse_mode": "Markdown"
                     })
             except Exception as tg_err:
-                print(f"Failed to send pipeline completion update to Telegram: {tg_err}")
+                logger.warning(f"Failed to send pipeline completion update to Telegram: {tg_err}")
 
         if complaint.sla_tier:
             try:
                 set_sla_timer(str(complaint.id), complaint.sla_tier)
             except Exception as e:
                 # Handle cases where redis is not running or fails, to let the flow complete
-                print(f"Failed to set SLA timer in Redis: {e}")
+                logger.warning(f"Failed to set SLA timer in Redis: {e}")
     finally:
         db.close()
             
@@ -118,6 +154,7 @@ Tone constraints:
 graph = StateGraph(ComplaintState)
 
 # Add all nodes
+graph.add_node("translation", run_translation)
 graph.add_node("nlp", run_nlp)
 graph.add_node("emotion", run_emotion)
 graph.add_node("dna", run_dna)
@@ -126,8 +163,8 @@ graph.add_node("escalation", run_escalation)
 graph.add_node("root_cause", run_root_cause)
 graph.add_node("merge_and_save", merge_and_save)
 
-# Hook them up in a clean linear sequential flow
-graph.add_edge(START, "nlp")
+graph.add_edge(START, "translation")
+graph.add_edge("translation", "nlp")
 graph.add_edge("nlp", "emotion")
 graph.add_edge("emotion", "dna")
 graph.add_edge("dna", "severity")
@@ -154,4 +191,4 @@ def run_pipeline(
         "bot_slots": bot_slots or {},
         "language_code": language_code
     }
-    return pipeline.invoke(initial_state)
+    return asyncio.run(pipeline.ainvoke(initial_state))

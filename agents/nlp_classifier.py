@@ -1,11 +1,10 @@
 from dotenv import load_dotenv
-import os
-import json
+import logging
 from agents.utils import safe_parse_json, groq_chat_completion
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-def classify_complaint(text:str):
+def classify_complaint(text: str) -> dict:
     chat_completion = groq_chat_completion(
         messages=[
             {
@@ -40,10 +39,12 @@ def classify_complaint(text:str):
     }
     
     if response_text is None:
+        logger.warning("classify_complaint: LLM returned None response, using fallback")
         return fallback
         
     parsed = safe_parse_json(response_text)
     if not parsed:
+        logger.warning("classify_complaint: JSON parsing failed, using fallback")
         return fallback
         
     return {

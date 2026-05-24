@@ -1,12 +1,8 @@
-from dotenv import load_dotenv
 import os
-import json
 from agents.state import ComplaintState
 from api.db.session import get_db
 from api.models.complaint import Complaint
 from agents.utils import groq_chat_completion
-
-load_dotenv()
 
 TIER_HOURS = {
     "REGULATORY": 5,

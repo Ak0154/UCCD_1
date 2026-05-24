@@ -9,24 +9,28 @@ class ComplaintState(TypedDict, total=False):
     bot_slots : dict
     language_code : str
 
-    complaint_type : Optional[str]
-    product_code : Optional[str]
-    intent : Optional[str]
-    regulatory_obligation : Optional[str]
-    type_confidence : Optional[float]
+    complaint_type : str
+    product_code : str
+    intent : str
+    regulatory_obligation : str
+    type_confidence : float
 
-    emotion_arc : Optional[dict]
-    severity_score : Optional[float]
-    sla_tier : Optional[str]
-    priority_tier : Optional[int]
-    sla_deadline : Optional[datetime]
-    breach_probability : Optional[float]
-    viral_risk_score : Optional[float]
-    cluster_id : Optional[str]
-    embedding : Optional[List[float]]
+    emotion_arc : dict
+    severity_score : float
+    sla_tier : str
+    priority_tier : int
+    sla_deadline : datetime
+    breach_probability : float
+    viral_risk_score : float
+    cluster_id : str
+    embedding : List[float]
 
-    pre_escalate : Optional[bool]
-    escalation_reason : Optional[str]
+    translated_text : str
+    detected_language : str
+    translation_status : str
 
-    root_cause : Optional[str]
-    root_cause_detected : Optional[bool]
+    pre_escalate : bool
+    escalation_reason : str
+
+    root_cause : str
+    root_cause_detected : bool

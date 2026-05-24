@@ -13,3 +13,4 @@ groq
 langgraph
 apscheduler
 redis
+httpx

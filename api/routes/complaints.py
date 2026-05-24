@@ -8,12 +8,16 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from api.models.complaint import Complaint
 from agents.orchestrator import run_pipeline
-from services.sla_service import get_sla_status
+from services.sla_service import get_sla_status, clear_sla
 from api.websocket import broadcast_event
 from pydantic import BaseModel
-from groq import Groq
+from agents.utils import groq_chat_completion
+from services.translation_service import SarvamTranslationService, TranslationStage
 import os
+import logging
 import requests
+
+logger = logging.getLogger(__name__)
 
 class RespondResolveRequest(BaseModel):
     response_text: str
@@ -138,6 +142,9 @@ VALID_TRANSITIONS = {
     "escalated": []
     }
 
+# FIXME: This endpoint and respond_and_resolve_complaint below lack
+# authentication. A JWT dependency (Depends(get_current_user)) should be
+# added to all state-changing endpoints before production use.
 @router.put("/{complaint_id}/status",response_model=ComplaintResponse)
 def update_complaint_status(complaint_id:str, body: StatusUpdate, db: Session = Depends(get_db)):
     
@@ -164,12 +171,11 @@ def update_complaint_status(complaint_id:str, body: StatusUpdate, db: Session = 
     return complaint
 
 @router.get("/{complaint_id}/draft")
-def generate_response_draft(complaint_id: str, tone: str = Query("apologetic"), db: Session = Depends(get_db)):
+async def generate_response_draft(complaint_id: str, tone: str = Query("apologetic"), db: Session = Depends(get_db)):
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
         
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
     prompt = f"""You are a bank customer relations officer at Union Bank of India.
 Generate a professional, personalized response to this complaint:
 "{complaint.raw_text}"
@@ -183,7 +189,7 @@ Tone constraints:
 - Do not include any markdown styling, placeholder texts like '[Your Name]', or greeting system text. Just return the raw response message.
 """
     try:
-        completion = client.chat.completions.create(
+        completion = groq_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             model="llama-3.1-8b-instant",
             max_tokens=250
@@ -192,11 +198,29 @@ Tone constraints:
     except Exception as e:
         draft_text = f"Dear Customer, we apologize for the inconvenience. We have received your complaint regarding {complaint.complaint_type or 'banking services'} and are investigating it. We will resolve it shortly."
 
-    complaint.ai_draft = draft_text
+    detected_lang = complaint.detected_language or complaint.language_code
+    if detected_lang:
+        try:
+            svc = SarvamTranslationService()
+            translated = await svc.translate(
+                text=draft_text,
+                stage=TranslationStage.DRAFT,
+                target_lang=detected_lang
+            )
+            if translated["translation_status"] == "success":
+                complaint.ai_draft = translated["translated_text"]
+            else:
+                complaint.ai_draft = draft_text
+        except Exception as e:
+            logger.warning(f"Sarvam draft translation failed for complaint {complaint_id}: {e}")
+            complaint.ai_draft = draft_text
+    else:
+        complaint.ai_draft = draft_text
+
     db.commit()
     db.refresh(complaint)
     
-    return {"complaint_id": complaint_id, "tone": tone, "draft": draft_text}
+    return {"complaint_id": complaint_id, "tone": tone, "draft": complaint.ai_draft}
 
 @router.post("/{complaint_id}/respond")
 def respond_and_resolve_complaint(complaint_id: str, body: RespondResolveRequest, db: Session = Depends(get_db)):
@@ -223,7 +247,6 @@ def respond_and_resolve_complaint(complaint_id: str, body: RespondResolveRequest
     
     # Close SLA if present in Redis
     try:
-        from services.sla_service import clear_sla
         clear_sla(str(complaint.id))
     except Exception:
         pass

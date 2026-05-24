@@ -93,6 +93,8 @@ TIER_HOURS = {
 }
 
 def set_sla_timer(complaint_id: str, sla_tier: str):
+    if sla_tier not in TIER_HOURS:
+        raise ValueError(f"Invalid SLA tier '{sla_tier}'. Must be one of: {list(TIER_HOURS.keys())}")
 
     hour = TIER_HOURS.get(sla_tier, 72)
     deadline = datetime.now(IST) + timedelta(hours=hour)
@@ -126,9 +128,9 @@ def get_sla_status(complaint_id: str):
         "percentage_elapsed": percentage_elapsed,
         "deadline": deadline.isoformat(),
         "alerts": {
-            "50%": meta["alert_50"],
-            "75%": meta["alert_75"],
-            "90%": meta["alert_90"]
+            "50%": meta.get("alert_50", "0"),
+            "75%": meta.get("alert_75", "0"),
+            "90%": meta.get("alert_90", "0")
         },
     }
 
@@ -175,6 +177,7 @@ def check_all_sla():
         
         ttl = r.ttl(f"sla:{complaint_id}")
         if ttl == -2:
+            clear_sla(complaint_id)
             fire_sla_alert(complaint_id, "BREACHED")
             try:
                 db = next(get_db())

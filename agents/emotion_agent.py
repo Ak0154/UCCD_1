@@ -1,10 +1,5 @@
-from dotenv import load_dotenv
-import os
-import json
 from agents.state import ComplaintState
 from agents.utils import safe_parse_json, groq_chat_completion
-
-load_dotenv()
 
 def run_emotion(state: ComplaintState) -> dict:
     text = state["raw_text"]

@@ -1,6 +1,7 @@
 import os
 import time
 import threading
+import logging
 import requests
 from api.db.session import get_db
 from api.models.complaint import Complaint
@@ -9,23 +10,25 @@ from api.websocket import broadcast_event
 from datetime import datetime, timezone
 from uuid import uuid4
 
+logger = logging.getLogger(__name__)
+
 def start_telegram_bot():
     """
     Initializes the Telegram bot thread if the token is present.
     """
     token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not token or token == "YOUR_TELEGRAM_BOT_TOKEN" or token.strip() == "":
-        print("TELEGRAM_BOT_TOKEN not configured. Telegram bot service remains disabled.")
+        logger.info("TELEGRAM_BOT_TOKEN not configured. Telegram bot service remains disabled.")
         return
 
     thread = threading.Thread(target=poll_telegram_updates, args=(token,), daemon=True)
     thread.start()
-    print("Telegram Ingestion bot polling thread started.")
+    logger.info("Telegram Ingestion bot polling thread started.")
 
 def poll_telegram_updates(token: str):
     offset = 0
     url = f"https://api.telegram.org/bot{token}"
-    print("Telegram Bot listener activated. Polling...")
+    logger.info("Telegram Bot listener activated. Polling...")
 
     while True:
         try:
@@ -36,7 +39,7 @@ def poll_telegram_updates(token: str):
                 timeout=25
             )
             if response.status_code != 200:
-                print(f"Telegram API getUpdates returned status {response.status_code}. Retrying in 15 seconds...")
+                logger.warning(f"Telegram API getUpdates returned status {response.status_code}. Retrying in 15 seconds...")
                 time.sleep(15)
                 continue
 
@@ -67,7 +70,7 @@ def poll_telegram_updates(token: str):
                     continue
 
                 # Inbound complaint flow
-                print(f"Telegram Bot received ticket from {username} (Chat ID {chat_id}): '{text_strip[:40]}...'")
+                logger.info(f"Telegram Bot received ticket from {username} (Chat ID {chat_id}): '{text_strip[:40]}...'")
                 
                 # Send typing feedback
                 requests.post(f"{url}/sendChatAction", json={"chat_id": chat_id, "action": "typing"})
@@ -95,15 +98,15 @@ def poll_telegram_updates(token: str):
                             }
                         )
                     else:
-                        print(f"API returned status {res.status_code}: {res.text}")
+                        logger.warning(f"API returned status {res.status_code}: {res.text}")
                         # Direct DB write fallback
                         save_fallback_db(chat_id, text_strip)
                 except Exception as api_err:
-                    print(f"Failed to post to API: {api_err}. Running DB write fallback...")
+                    logger.warning(f"Failed to post to API: {api_err}. Running DB write fallback...")
                     save_fallback_db(chat_id, text_strip)
 
         except Exception as e:
-            print(f"Error in Telegram Bot update cycle: {e}")
+            logger.error(f"Error in Telegram Bot update cycle: {e}")
             time.sleep(5)
 
 def save_fallback_db(chat_id: int, text: str):
@@ -160,7 +163,7 @@ def save_fallback_db(chat_id: int, text: str):
         ).start()
 
     except Exception as db_err:
-        print(f"DB Fallback write failed: {db_err}")
+        logger.error(f"DB Fallback write failed: {db_err}")
         requests.post(
             f"{url}/sendMessage",
             json={

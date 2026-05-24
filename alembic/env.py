@@ -17,6 +17,8 @@ if config.config_file_name is not None:
 DATABASE_URL = os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL")
 if DATABASE_URL:
     config.set_main_option("sqlalchemy.url", DATABASE_URL)
+else:
+    raise RuntimeError("POSTGRES_URL or DATABASE_URL must be set for Alembic migrations")
 
 from api.db.session import Base
 from api.models.complaint import Complaint

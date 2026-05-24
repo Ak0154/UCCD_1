@@ -48,6 +48,11 @@ class ComplaintResponse(BaseModel):
     pre_escalate: Optional[bool] = False
     resolution_notes: Optional[str] = None
     updated_at: Optional[datetime] = None
+    detected_language: Optional[str] = None
+    translated_text: Optional[str] = None
+    translation_status: Optional[str] = None
+    attachments: Optional[dict] = None
+    voice_transcript: Optional[dict] = None
 
     model_config = ConfigDict(from_attributes=True)
 

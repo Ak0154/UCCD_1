@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes.complaints import router as complaints_router
@@ -12,16 +13,15 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from services.sla_service import check_all_sla
 from services.telegram_bot import start_telegram_bot
 from contextlib import asynccontextmanager
-from api.websocket import router as ws_router
+from api.websocket import router as ws_router, manager
 
 scheduler = BackgroundScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start SLA checking scheduler
+    manager.set_main_loop(asyncio.get_running_loop())
     scheduler.add_job(check_all_sla, 'interval', minutes=1)
     scheduler.start()
-    # Start Telegram Bot listener
     start_telegram_bot()
     yield
     scheduler.shutdown()

@@ -1,13 +1,10 @@
-from dotenv import load_dotenv
 import os
-import json
 from datetime import datetime, timezone, timedelta
 from agents.state import ComplaintState
 from api.db.session import get_db
 from api.models.complaint import Complaint
 from agents.utils import safe_parse_json, groq_chat_completion
 
-load_dotenv()
 IST = timezone(timedelta(hours=5, minutes=30))
 
 TIER_HOURS = {
@@ -93,7 +90,7 @@ Return ONLY a valid JSON object with the following key and value, with NO other 
         
     # 3. Emotion Intensity check (+0.2)
     emotion_arc = state.get("emotion_arc", {})
-    intensity = emotion_arc.get("intensity", 5) if isinstance(emotion_arc, dict) else 5
+    intensity = emotion_arc.get("intensity", 5)
     if intensity >= 8:
         final_score += 0.2
         

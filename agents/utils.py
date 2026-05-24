@@ -2,7 +2,10 @@ import json
 import os
 import time
 import re
+import logging
 from groq import Groq
+
+logger = logging.getLogger(__name__)
 
 # Cache the Groq client instance
 _groq_client = None
@@ -80,11 +83,10 @@ def safe_parse_json(text: str) -> dict:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError:
-        # Fallback if double quotes are missing or malformed
+        logger.warning("safe_parse_json: json.loads failed, attempting ast.literal_eval fallback")
         try:
-            # Try to clean up common issues (e.g. replacing python single quotes with double quotes)
-            # This is a basic fallback and should be used with caution
             import ast
             return ast.literal_eval(cleaned)
         except Exception:
+            logger.warning("safe_parse_json: all parse attempts failed, returning {}")
             return {}

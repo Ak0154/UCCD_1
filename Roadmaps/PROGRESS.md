@@ -22,7 +22,7 @@ Source: [Roadmap_Abhineet.html](Roadmap_Abhineet.html)
 
 ### Week 2 — NLP classifier
 
-- [x] `agents/nlp_classifier.py` — multi-field JSON classification (uses **Groq** + `GROQ_API_KEY`, not Claude/Anthropic as in roadmap)
+- [x] `agents/nlp_classifier.py` — multi-field JSON classification (uses **Groq** + `GROQ_ACCESS_TOKEN`, not Claude/Anthropic as in roadmap)
 - [x] `type_confidence` populated by classifier — `classify_complaint()` returns it (`agents/nlp_classifier.py:54`), `run_nlp()` extracts it (`agents/orchestrator.py:26`), `merge_and_save()` stores it in DB (`agents/orchestrator.py:41`)
 - [ ] Kafka `NLPConsumer` / consume `complaints.inbound` (roadmap); pipeline runs from FastAPI `BackgroundTasks` instead
 
@@ -40,7 +40,7 @@ Source: [Roadmap_Abhineet.html](Roadmap_Abhineet.html)
 - [x] `GET /api/v1/ai/draft/{complaint_id}` — `GET /api/v1/ai/draft/{complaint_id}` in `api/routes/ai.py:30` — delegates to complaints route handler
 - [x] `POST /api/v1/complaints/{id}/respond` — final response + edit delta + resolve (`api/routes/complaints.py:201`); also stored in `respond_and_resolve_complaint()`
 - [x] `api/websocket.py` — `ConnectionManager`, `ws://.../api/v1/ws/supervisor`, `broadcast_event()`
-- [ ] WebSocket message types exactly as roadmap (`breach_predicted`, `breach_occurred`, `cluster_spike`, `agent_overload`); `breach_occurred` is implemented on TTL expiry (`sla_alert` type in `sla_service.py:178`); `new_complaint`, `complaint_status_changed`, `sla_alert` (50/75/90%) also present — `breach_predicted`, `cluster_spike`, `agent_overload` still missing
+- [ ] WebSocket message types exactly as roadmap (`sla_exceed_predicted`, `sla_exceed_occurred`, `cluster_spike`, `agent_overload`); `sla_exceed_occurred` is implemented on TTL expiry (`sla_alert` type in `sla_service.py:178\`); `new_complaint`, `complaint_status_changed`, `sla_alert` (50/75/90%) also present — `sla_exceed_predicted`, `cluster_spike`, `agent_overload` still missing
 
 
 ### Week 5 — Remaining API surface
@@ -82,8 +82,8 @@ Source: [Roadmap_Akash.html](Roadmap_Akash.html)
 - [ ] `agents/dna_agent.py` — Groq-based clustering implemented; `DNAConsumer` Kafka consumer wrapper missing
 - [ ] `agents/severity_agent.py` — Groq-based weighted scoring implemented; `SeverityConsumer` Kafka consumer wrapper missing
 - [ ] `agents/emotion_agent.py` — Groq-based sentiment analysis implemented; `EmotionConsumer` Kafka consumer wrapper missing
-- [ ] `agents/escalation_agent.py` — Groq + heuristic breach prediction implemented; `EscalationConsumer` Kafka consumer wrapper missing
-- [ ] `ml/generate_training_data.py`, `ml/train_breach_model.py`, `ml/breach_predictor.pkl` — all missing
+- [ ] `agents/escalation_agent.py` — Groq + heuristic SLA warning prediction implemented; `EscalationConsumer` Kafka consumer wrapper missing
+- [ ] `ml/generate_training_data.py`, `ml/train_sla_model.py`, `ml/sla_predictor.pkl` — all missing
 
 ### Week 6 — Integration
 
@@ -99,7 +99,7 @@ Source: [Roadmap_Hemant.html](Roadmap_Hemant.html)
 
 - [ ] `frontend/` Vite + React + TypeScript project
 - [ ] `src/styles/tokens.css` — design tokens
-- [ ] `src/api/client.ts` — Axios + JWT interceptor
+- [ ] `src/api/client.ts` — Axios + Token interceptor
 - [ ] `src/types/complaint.ts` — interfaces aligned with API
 - [ ] React Router + protected routes + `Sidebar.tsx`
 
@@ -131,12 +131,12 @@ Sources: [Roadmap_Pritesh.html](Roadmap_Pritesh.html), [Roadmap_Suryansh.html](R
 - [ ] Full stack per roadmap: Zookeeper, Kafka, Postgres, Redis, api in one compose
 - [ ] `Makefile` (`make up`, `make down`, `make logs`, `make seed`, `make test`)
 - [ ] `src/config.py` — pydantic `BaseSettings` for env
-- [ ] `.env.example` with `SARVAM_API_KEY` and full team vars
+- [ ] `.env.example` with `SARVAM_ACCESS_TOKEN` and full team vars
 
-### Week 2 — JWT + RBAC
+### Week 2 — Token + RBAC
 
-- [x] `POST /api/v1/auth/login` — issues JWT (`api/routes/auth.py`)
-- [ ] `api/models/user.py` + users table + bcrypt-hashed passwords + seed users
+- [x] `POST /api/v1/auth/login` — issues Token (`api/routes/auth.py`)
+- [ ] `api/models/user.py` + users table + bcrypt-hashed credentials + seed users
 - [ ] `api/auth.py` — `create_access_token`, `verify_token`, `get_current_user`, `require_role`
 - [ ] OAuth2 bearer dependency on protected routes (login is public; complaints/dashboard open in current app)
 
@@ -145,7 +145,7 @@ Sources: [Roadmap_Pritesh.html](Roadmap_Pritesh.html), [Roadmap_Suryansh.html](R
 - [x] `services/sla_service.py` — Redis keys, `set_sla_timer`, `get_sla_status`, `check_all_sla`, `fire_sla_alert`, `clear_sla`
 - [x] APScheduler in `api/main.py` lifespan — job every **1 minute** (roadmap: 60s ✓)
 - [ ] `supervisor_notification_service` (roadmap mentions alongside WS)
-- [ ] On TTL expiry: roadmap says status `"breached"`; repo sets `sla_breached=True` and may set `escalated` (verify product intent vs roadmap)
+- [ ] On TTL expiry: roadmap says status `"overdue"`; repo sets `sla_breached=True` and may set `escalated` (verify product intent vs roadmap)
 
 ### Week 4 — Agent load + regulatory
 
@@ -164,10 +164,10 @@ Sources: [Roadmap_Pritesh.html](Roadmap_Pritesh.html), [Roadmap_Suryansh.html](R
 
 | Owner | Roughly done | Main gaps |
 |--------|----------------|------------|
-| **Abhineet** | Core API, NLP/Groq, LangGraph full orchestrator (NLP → emotion → dna → severity → escalation → root-cause → DB), WS, dashboard KPIs, escalations, agents/load, analytics/trends, simulation, history, translate-preview, respond route, CORS (5173+3000), seed script (runable) | `services/draft_service.py` missing as separate file (draft inline), WS message types not matching roadmap (`breach_predicted`/`cluster_spike`/`agent_overload` absent), seed script 16 vs 20 target, Kafka missing, request-log middleware missing, per-node E2E timing missing |
+| **Abhineet** | Core API, NLP/Groq, LangGraph full orchestrator (NLP → emotion → dna → severity → escalation → root-cause → DB), WS, dashboard KPIs, escalations, agents/load, analytics/trends, simulation, history, translate-preview, respond route, CORS (5173+3000), seed script (runable) | `services/draft_service.py` missing as separate file (draft inline), WS message types not matching roadmap (`sla_exceed_predicted`/`cluster_spike`/`agent_overload` absent), seed script 16 vs 20 target, Kafka missing, request-log middleware missing, per-node E2E timing missing |
 | **Akash** | — | Entire Kafka (`kafka/` absent), Kafka-based ML agent consumers, db/schema.sql + pgvector, Alembic, `db/connection.py`, `ml/` training pipeline, kafka-based E2E |
 | **Hemant** | — | Entire app-level `frontend/` (only landing page exists); no API client, types, screens, hooks, router |
-| **Pritesh/Suryansh** | Redis SLA engine, JWT login, APScheduler, Dockerfile | Full compose (Kafka/Postgres missing), `Makefile`, `src/config.py`, `api/models/user.py`, `api/auth.py`, RBAC/`require_role`, `services/agent_service.py`, `services/regulatory_service.py`, `tests/`, `README.md` |
+| **Pritesh/Suryansh** | Redis SLA engine, Token login, APScheduler, Dockerfile | Full compose (Kafka/Postgres missing), `Makefile`, `src/config.py`, `api/models/user.py`, `api/auth.py`, RBAC/`require_role`, `services/agent_service.py`, `services/regulatory_service.py`, `tests/`, `README.md` |
 
 ---
 

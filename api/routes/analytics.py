@@ -60,7 +60,7 @@ def get_trends(
     avg_severity = db.query(func.avg(Complaint.severity_score)).scalar() or 0.0
 
     # 4. Breach statistics
-    breached_count = db.query(Complaint).filter(Complaint.sla_breached == True).count()
+    breached_count = db.query(Complaint).filter(Complaint.sla_breached.is_(True)).count()
     total_count = db.query(Complaint).count()
     met_count = total_count - breached_count
 
