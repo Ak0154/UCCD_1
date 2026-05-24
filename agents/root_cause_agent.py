@@ -9,11 +9,14 @@ def run_root_cause(state: ComplaintState) -> dict:
         return {}
     
     db = next(get_db())
-    count = db.query(Complaint).filter(
-        Complaint.cluster_id == cluster_id
-    ).count()
+    try:
+        count = db.query(Complaint).filter(
+            Complaint.cluster_id == cluster_id
+        ).count()
 
-    if count < 10:
-        return {}
-    else:
-        return {"root_cause": f"ROOT_{cluster_id}"}
+        if count < 10:
+            return {}
+        else:
+            return {"root_cause": f"ROOT_{cluster_id}"}
+    finally:
+        db.close()

@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_design_context","arguments":{"fileKey":"WPNZc39RGwQHk2N23K2CB4","nodeId":"1:2649","clientLanguages":"typescript","clientFrameworks":"react","forceCode":true}}}

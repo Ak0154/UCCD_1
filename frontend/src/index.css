@@ -1,0 +1,202 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #000000;
+  --color-surface: #08070e;
+  --color-border: #202026;
+  --color-accent: #00ffb2;
+  --color-text: #f5f5f5;
+  --color-muted: #b0b0b0;
+  --font-display: 'Instrument Sans', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: rgba(0, 255, 178, 0.25);
+    color: #fff;
+  }
+}
+
+@layer utilities {
+  .uccd-glow {
+    box-shadow: 0 0 32px rgba(42, 240, 124, 0.32);
+  }
+
+  .uccd-hero-glow {
+    background: radial-gradient(
+      ellipse 60% 40% at 50% 0%,
+      rgba(0, 255, 178, 0.12),
+      transparent 70%
+    );
+  }
+
+  .channel-cylinder {
+    box-shadow:
+      inset 16px 0 24px rgba(255, 255, 255, 0.03),
+      inset -18px 0 28px rgba(0, 0, 0, 0.42),
+      0 18px 42px rgba(0, 0, 0, 0.28);
+  }
+
+  .channel-track {
+    animation: channel-marquee 22s linear infinite;
+  }
+
+  .channel-track-slow {
+    animation: channel-marquee 30s linear infinite;
+  }
+
+  .powered-footer-track {
+    animation: powered-marquee 28s linear infinite;
+  }
+
+  .faq-answer {
+    animation: faq-reveal 220ms ease-out both;
+  }
+
+  .uccd-scrollbar {
+    scrollbar-color: rgba(0, 255, 178, 0.35) #08070e;
+    scrollbar-width: thin;
+  }
+
+  .uccd-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .uccd-scrollbar::-webkit-scrollbar-track {
+    background: #08070e;
+    border-radius: 999px;
+  }
+
+  .uccd-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 178, 0.35);
+    border: 2px solid #08070e;
+    border-radius: 999px;
+  }
+
+  .uccd-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 178, 0.58);
+  }
+
+  .flow-pulse {
+    animation: flow-pulse 2.2s ease-in-out infinite;
+  }
+
+  .flow-float {
+    animation: flow-float 8s ease-in-out infinite;
+  }
+
+  .flow-float-delayed {
+    animation: flow-float 10s ease-in-out infinite;
+    animation-delay: -4s;
+  }
+
+  .row-reveal {
+    animation: row-reveal 0.4s ease-out both;
+  }
+
+  .glow-border {
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 178, 0.2),
+      0 0 40px rgba(0, 255, 178, 0.08);
+  }
+}
+
+@keyframes channel-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes powered-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes faq-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes flow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 178, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(0, 255, 178, 0);
+  }
+}
+
+@keyframes flow-float {
+  0%, 100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.12;
+  }
+  25% {
+    transform: translate(40px, -30px) scale(1.15);
+    opacity: 0.18;
+  }
+  50% {
+    transform: translate(-20px, 20px) scale(0.95);
+    opacity: 0.08;
+  }
+  75% {
+    transform: translate(-35px, -15px) scale(1.08);
+    opacity: 0.14;
+  }
+}
+
+@keyframes row-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

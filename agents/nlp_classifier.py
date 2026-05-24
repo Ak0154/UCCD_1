@@ -1,14 +1,11 @@
-from groq import Groq
 from dotenv import load_dotenv
-import os
-import json
+import logging
+from agents.utils import safe_parse_json, groq_chat_completion
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-
-def classify_complaint(text:str):
-    chat_completion = client.chat.completions.create(
+def classify_complaint(text: str) -> dict:
+    chat_completion = groq_chat_completion(
         messages=[
             {
                 "role": "system",
@@ -19,7 +16,8 @@ def classify_complaint(text:str):
                     "complaint_type": "one of: fraud, billing, kyc, loans, cards, service, technical, other",
                     "product_code": "one of: savings, current, credit_card, home_loan, personal_loan, fd, insurance",
                     "intent": "one of: refund, explanation, escalation, closure, legal_threat",
-                    "regulatory_obligation": "one of: banking_ombudsman, rbi_consumer, irdai, sebi, none"
+                    "regulatory_obligation": "one of: banking_ombudsman, rbi_consumer, irdai, sebi, none",
+                    "type_confidence": 0.0 to 1.0
                     }"""
             },
             {
@@ -31,22 +29,31 @@ def classify_complaint(text:str):
         max_tokens=300,
     )
     response_text = chat_completion.choices[0].message.content
+    
+    fallback = {
+        "complaint_type": "other",
+        "product_code": None,
+        "intent": None,
+        "regulatory_obligation": "none",
+        "type_confidence": 0.0
+    }
+    
     if response_text is None:
-        return {
-            "complaint_type": "other",
-            "product_code": None,
-            "intent": None,
-            "regulatory_obligation": "none"
-        }
-    try:
-        return json.loads(response_text)
-    except json.JSONDecodeError:
-        return {
-            "complaint_type": "other",
-            "product_code": None,
-            "intent": None,
-            "regulatory_obligation": "none"
-        }
+        logger.warning("classify_complaint: LLM returned None response, using fallback")
+        return fallback
+        
+    parsed = safe_parse_json(response_text)
+    if not parsed:
+        logger.warning("classify_complaint: JSON parsing failed, using fallback")
+        return fallback
+        
+    return {
+        "complaint_type": parsed.get("complaint_type", "other"),
+        "product_code": parsed.get("product_code"),
+        "intent": parsed.get("intent"),
+        "regulatory_obligation": parsed.get("regulatory_obligation", "none"),
+        "type_confidence": float(parsed.get("type_confidence", 0.0))
+    }
     
 
 if __name__ == "__main__":

@@ -45,8 +45,14 @@ class ComplaintResponse(BaseModel):
     viral_risk_score: Optional[float] = None
     emotion_arc: Optional[dict] = None
     escalation_reason: Optional[str] = None
+    pre_escalate: Optional[bool] = False
     resolution_notes: Optional[str] = None
     updated_at: Optional[datetime] = None
+    detected_language: Optional[str] = None
+    translated_text: Optional[str] = None
+    translation_status: Optional[str] = None
+    attachments: Optional[dict] = None
+    voice_transcript: Optional[dict] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -55,3 +61,6 @@ class ComplaintListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+class StatusUpdate(BaseModel):
+    new_status: str
