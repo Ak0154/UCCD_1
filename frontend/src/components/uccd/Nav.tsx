@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Container, PrimaryButton } from './ui'
 
 const links = [
@@ -33,6 +34,9 @@ export function Nav() {
           ))}
         </nav>
         <PrimaryButton className="hidden sm:inline-flex">Request demo</PrimaryButton>
+        <Link to="/login" className="hidden sm:inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-text transition hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+          Login
+        </Link>
       </Container>
     </header>
   )
