@@ -1,8 +1,12 @@
 import os
+import pickle
+import logging
 from agents.state import ComplaintState
 from api.db.session import get_db
 from api.models.complaint import Complaint
 from agents.utils import groq_chat_completion
+
+logger = logging.getLogger(__name__)
 
 TIER_HOURS = {
     "REGULATORY": 5,
@@ -11,12 +15,57 @@ TIER_HOURS = {
     "NORMAL": 72
 }
 
+
+def _load_trained_model():
+    model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              "ml", "violation_predictor.pkl")
+    try:
+        if os.path.exists(model_path):
+            with open(model_path, "rb") as f:
+                return pickle.load(f)
+    except Exception:
+        logger.warning("Failed to load trained SLA model, falling back to heuristic")
+    return None
+
+
+def _compute_breach_probability_heuristic(severity_score: float, queue_size: int,
+                                           sla_hours: int) -> float:
+    queue_factor = min(queue_size / 20.0, 1.0)
+    sla_factor = 1.0 - (sla_hours / 72.0)
+    probability = (0.4 * severity_score) + (0.4 * queue_factor) + (0.2 * sla_factor)
+    return min(max(probability, 0.0), 1.0)
+
+
+def _compute_breach_probability_ml(model, severity_score: float, queue_size: int,
+                                    sla_hours: int, regulatory_flag: bool,
+                                    vip_customer: bool) -> float:
+    import datetime
+    features = [[
+        severity_score,
+        3,
+        sla_hours,
+        queue_size,
+        1 if regulatory_flag else 0,
+        1 if vip_customer else 0,
+        1,
+        datetime.datetime.now().hour,
+    ]]
+    try:
+        prob = model.predict_proba(features)[0]
+        breach_idx = 1 if len(prob) > 1 else 0
+        return float(prob[breach_idx])
+    except Exception:
+        return _compute_breach_probability_heuristic(severity_score, queue_size, sla_hours)
+
+
 def run_escalation(state: ComplaintState) -> dict:
     severity_score = state.get("severity_score", 0.5)
     sla_tier = state.get("sla_tier", "NORMAL")
     sla_hours = TIER_HOURS.get(sla_tier, 72)
-    
-    # Query database for current queue size
+
+    regulatory_flag = state.get("regulatory_flag", False)
+    vip_customer = state.get("vip_customer", False)
+
     try:
         db = next(get_db())
         try:
@@ -26,18 +75,18 @@ def run_escalation(state: ComplaintState) -> dict:
         finally:
             db.close()
     except Exception:
-        queue_size = 5 # fallback if db check fails
+        queue_size = 5
 
-    # Queue load factor (scaled between 0.0 and 1.0, capped at 20 complaints)
-    queue_factor = min(queue_size / 20.0, 1.0)
-    
-    # SLA duration factor (shorter SLA means higher breach risk)
-    sla_factor = 1.0 - (sla_hours / 72.0)
-    
-    # Calculate probability
-    # Weights: 40% Severity, 40% Queue Load, 20% SLA Ugency
-    breach_probability = (0.4 * severity_score) + (0.4 * queue_factor) + (0.2 * sla_factor)
-    breach_probability = min(max(breach_probability, 0.0), 1.0)
+    trained_model = _load_trained_model()
+    if trained_model is not None:
+        breach_probability = _compute_breach_probability_ml(
+            trained_model, severity_score, queue_size, sla_hours,
+            regulatory_flag, vip_customer
+        )
+    else:
+        breach_probability = _compute_breach_probability_heuristic(
+            severity_score, queue_size, sla_hours
+        )
     
     pre_escalate = False
     escalation_reason = None
@@ -51,7 +100,7 @@ An incoming complaint has been flagged for PRE-ESCALATION (risk of breaching the
 Explain concisely (1-2 sentences) why this ticket is at risk.
 
 Context:
-- Complaint Raw Text snippet: "{state['raw_text'][:200]}"
+- Complaint Raw Text snippet: "{state.get("raw_text", "")[:200]}"
 - Calculated Severity Score: {severity_score:.2f}
 - SLA Tier: {sla_tier} ({sla_hours} hours deadline)
 - Current Active Queue Size: {queue_size} pending tickets

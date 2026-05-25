@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 
 @theme {
+  /* Original Landing Page theme variables - RESTORED EXACTLY */
   --color-bg: #000000;
   --color-surface: #08070e;
   --color-border: #202026;
@@ -9,6 +10,24 @@
   --color-muted: #b0b0b0;
   --font-display: 'Instrument Sans', system-ui, sans-serif;
   --font-body: 'Inter', system-ui, sans-serif;
+
+  /* Premium Stitch OmniResol Dashboard theme - Aligned with Landing Page brand colors */
+  --color-dash-bg: #000000;
+  --color-dash-surface-lowest: #05040a;
+  --color-dash-surface-low: #08070e;
+  --color-dash-surface: #0d0c15;
+  --color-dash-surface-high: #141320;
+  --color-dash-surface-highest: #1c1a2e;
+  --color-dash-text: #f5f5f5;
+  --color-dash-text-muted: #b0b0b0;
+  --color-dash-primary: #00ffb2;
+  --color-dash-primary-hover: #00e69f;
+  --color-dash-border: rgba(0, 255, 178, 0.15);
+  --color-dash-outline: #202026;
+  --color-dash-error: #ff5e62;
+  --color-dash-success: #00ffb2;
+
+  --font-sans: 'DM Sans', Inter, system-ui, sans-serif;
 }
 
 @layer base {
@@ -32,6 +51,47 @@
 }
 
 @layer utilities {
+  /* Dashboard styling using Stitch OmniResol design tokens */
+  .glass-card {
+    background: rgba(8, 7, 14, 0.85); /* Deep Obsidian surface #08070e with opacity */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 255, 178, 0.15); /* Accent neon mint outline */
+  }
+
+  .dashboard-scrollbar {
+    scrollbar-color: rgba(0, 255, 178, 0.3) rgba(5, 4, 10, 0.5);
+    scrollbar-width: thin;
+  }
+
+  .dashboard-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .dashboard-scrollbar::-webkit-scrollbar-track {
+    background: rgba(5, 4, 10, 0.5);
+    border-radius: 999px;
+  }
+
+  .dashboard-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 178, 0.3);
+    border-radius: 999px;
+  }
+
+  .dashboard-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 178, 0.5);
+  }
+
+  .violet-glow {
+    box-shadow: 0 0 20px 2px rgba(0, 255, 178, 0.15);
+  }
+
+  .pulse-urgent {
+    animation: subtle-pulse-anim 2.5s infinite ease-in-out;
+  }
+
+  /* Legacy Landing Page Utilities (RESTORED EXACTLY) */
   .uccd-glow {
     box-shadow: 0 0 32px rgba(42, 240, 124, 0.32);
   }
@@ -116,11 +176,21 @@
   }
 }
 
+@keyframes subtle-pulse-anim {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 14px 2px rgba(239, 68, 68, 0.35);
+    border-color: rgba(239, 68, 68, 0.6);
+  }
+}
+
 @keyframes channel-marquee {
   from {
     transform: translateX(0);
   }
-
   to {
     transform: translateX(-50%);
   }
@@ -130,7 +200,6 @@
   from {
     transform: translateX(0);
   }
-
   to {
     transform: translateX(-50%);
   }
@@ -141,7 +210,6 @@
     opacity: 0;
     transform: translateY(-6px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
@@ -191,7 +259,6 @@
   html {
     scroll-behavior: auto;
   }
-
   *,
   *::before,
   *::after {

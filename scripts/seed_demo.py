@@ -124,6 +124,34 @@ MOCK_COMPLAINTS = [
         "raw_text": "URGENT: I clicked on a link in an SMS that looked like it was from Union Bank. Now Rs. 40,000 has been transferred from my account to some unknown person. Please freeze the receiver's account and block my net banking!",
         "vip_customer": False,
         "regulatory_flag": False
+    },
+    {
+        "customer_id": "CUST_1017",
+        "channel": "Phone",
+        "raw_text": "I've been waiting in your Indiranagar branch queue for over 3 hours just to update my nominee in my savings account. There are only two counters open out of eight. The staff are moving very slowly. This is terrible service.",
+        "vip_customer": False,
+        "regulatory_flag": False
+    },
+    {
+        "customer_id": "CUST_1018",
+        "channel": "Email",
+        "raw_text": "I have a car loan EMI due on the 1st of every month. My salary was delayed this month and the EMI bounced. Now the bank recovery agents are calling my family and neighbours, using threatening language. This is harassment and a violation of RBI fair practices code. Stop this immediately.",
+        "vip_customer": False,
+        "regulatory_flag": True
+    },
+    {
+        "customer_id": "CUST_1019",
+        "channel": "Web",
+        "raw_text": "I received my mutual fund redemption of Rs. 1,25,000 into my savings account on 20th May, but the amount is still 'on hold' and not credited to my available balance. I need these funds urgently for my daughter's college admission fee due tomorrow.",
+        "vip_customer": True,
+        "regulatory_flag": False
+    },
+    {
+        "customer_id": "CUST_1020",
+        "channel": "WhatsApp",
+        "raw_text": "My father passed away last month. I submitted the death certificate and claim forms for his fixed deposit at the Pune branch 20 days ago. No update yet. The branch manager keeps saying 'it's under process'. We are the legal nominees. Please expedite this.",
+        "vip_customer": False,
+        "regulatory_flag": True
     }
 ]
 

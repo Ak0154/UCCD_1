@@ -2,6 +2,8 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 from sqlalchemy.orm import Session
 from api.db.session import get_db
 from api.models.complaint import Complaint
+from api.models.user import User
+from api.auth import require_role
 from services.translation_service import SarvamTranslationService, TranslationStage
 from api.routes.complaints import generate_response_draft
 import logging
@@ -13,7 +15,8 @@ router = APIRouter(prefix="/api/v1/ai", tags=["ai"])
 @router.get("/translate-preview")
 async def translate_preview(
     text: str = Query(..., description="The response text to translate"),
-    target_lang: str = Query(..., description="The target language code (e.g. hi-IN, ur)")
+    target_lang: str = Query(..., description="The target language code (e.g. hi-IN, ur)"),
+    current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
     """
     Translates response drafts to the customer's preferred target language.
@@ -55,7 +58,8 @@ async def translate_preview(
 async def get_ai_draft_preview(
     complaint_id: str,
     tone: str = Query("apologetic", description="Tone of the response"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("AGENT", "SUPERVISOR")),
 ):
     """
     Provides a quick draft preview of the complaint response.

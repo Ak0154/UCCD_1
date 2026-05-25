@@ -1,177 +1,211 @@
-# UCCD — Progress Checklist vs Roadmaps
+# UCCD - Progress Checklist vs Roadmaps
 
-Checklist derived from each person’s roadmap HTML in `Roadmaps/` and verified against the repo (`api/`, `agents/`, `services/`, `scripts/`, `docker-compose.yml`).  
-Legend: `[x]` done in codebase · `[ ]` not done / stub / missing
+Checklist derived from each person's roadmap HTML in `Roadmaps/` and verified against the current repo (`api/`, `agents/`, `services/`, `scripts/`, `frontend/`, `db/`, `alembic/`, `docker-compose.yml`, `Makefile`).
 
-_Last updated: repo snapshot at time of writing._
+Legend: `[x]` done in codebase, `[~]` partially done / exists but incomplete, `[ ]` not done / missing.
+
+Last updated: 2026-05-25 from local repo snapshot.
 
 ---
 
-## Abhineet — AI Engineer + Backend (FastAPI)
+## Abhineet - AI Engineer + Backend (FastAPI)
 
 Source: [Roadmap_Abhineet.html](Roadmap_Abhineet.html)
 
-### Week 1 — FastAPI + ORM + core routes
+### Week 1 - FastAPI + ORM + core routes
 
 - [x] Project layout: `api/main.py`, `api/models/`, `api/routes/`, `api/schemas/`, `api/db/`
-- [x] `api/models/complaint.py` — SQLAlchemy `Complaint` model (rich columns incl. AI fields)
-- [x] `api/schemas/complaint.py` — Pydantic `ComplaintCreate`, `ComplaintResponse`, `ComplaintListResponse`, `StatusUpdate`
-- [x] `api/routes/complaints.py` — `POST /api/v1/complaints`, `GET /api/v1/complaints` (filters + pagination), `GET /api/v1/complaints/{id}`
-- [x] Real DB persistence (not mock-only) for complaints
-- [x] `GET /api/v1/complaints/escalations` (roadmap listed as `GET /api/v1/escalations` — implemented under complaints prefix)
+- [x] `api/models/complaint.py` - SQLAlchemy `Complaint` model with rich AI fields
+- [x] `api/schemas/complaint.py` - complaint create/response/list/status schemas
+- [x] `api/routes/complaints.py` - create, list, get-by-id routes
+- [x] Real DB persistence through SQLAlchemy
+- [x] Escalation queue route exists as `GET /api/v1/complaints/escalations`
+- [ ] Roadmap alias `GET /api/v1/escalations` is not implemented
 
-### Week 2 — NLP classifier
+### Week 2 - NLP classifier
 
-- [x] `agents/nlp_classifier.py` — multi-field JSON classification (uses **Groq** + `GROQ_ACCESS_TOKEN`, not Claude/Anthropic as in roadmap)
-- [x] `type_confidence` populated by classifier — `classify_complaint()` returns it (`agents/nlp_classifier.py:54`), `run_nlp()` extracts it (`agents/orchestrator.py:26`), `merge_and_save()` stores it in DB (`agents/orchestrator.py:41`)
-- [ ] Kafka `NLPConsumer` / consume `complaints.inbound` (roadmap); pipeline runs from FastAPI `BackgroundTasks` instead
+- [x] `agents/nlp_classifier.py` - Groq-backed multi-field JSON classification
+- [x] Classifier populates `complaint_type`, `product_code`, `intent`, `regulatory_obligation`, `type_confidence`
+- [ ] Kafka `NLPConsumer` / `complaints.inbound` consumer is not implemented
 
-### Week 3 — LangGraph orchestrator
+### Week 3 - LangGraph orchestrator
 
-- [x] `agents/state.py` — `ComplaintState` TypedDict
-- [x] `agents/orchestrator.py` — LangGraph: parallel nodes from `START`, `merge_and_save` → DB + `set_sla_timer` when `sla_tier` set
-- [x] `agents/root_cause_agent.py` — minimal logic (cluster size threshold)
-- [x] `run_emotion`, `run_dna`, `run_severity`, `run_escalation` — all implemented (Groq + heuristic logic; not stubs)
-- [ ] Publish to Kafka on create + async pipeline only via queue (roadmap); pipeline runs inline (Groq API calls are blocking, not queued)
+- [x] `agents/state.py` - `ComplaintState` TypedDict
+- [x] `agents/orchestrator.py` - LangGraph pipeline wired end-to-end
+- [x] Translation step added before NLP via `services/translation_service.py`
+- [x] `run_emotion`, `run_dna`, `run_severity`, `run_escalation`, `run_root_cause` are implemented
+- [x] `merge_and_save` writes AI output to DB and starts Redis SLA timers when possible
+- [~] Pipeline runs from FastAPI background tasks and seed script; Kafka-based orchestration is still missing
+- [x] Parallel LangGraph pipeline shape implemented: emotion||severity → dna||escalation run in parallel after nlp
 
-### Week 4 — Draft response + WebSocket
+### Week 4 - Draft response + WebSocket
 
-- [ ] `services/draft_service.py` — separate file missing (draft logic inline in `api/routes/complaints.py` {line 166})
-- [x] `GET /api/v1/ai/draft/{complaint_id}` — `GET /api/v1/ai/draft/{complaint_id}` in `api/routes/ai.py:30` — delegates to complaints route handler
-- [x] `POST /api/v1/complaints/{id}/respond` — final response + edit delta + resolve (`api/routes/complaints.py:201`); also stored in `respond_and_resolve_complaint()`
-- [x] `api/websocket.py` — `ConnectionManager`, `ws://.../api/v1/ws/supervisor`, `broadcast_event()`
-- [ ] WebSocket message types exactly as roadmap (`sla_exceed_predicted`, `sla_exceed_occurred`, `cluster_spike`, `agent_overload`); `sla_exceed_occurred` is implemented on TTL expiry (`sla_alert` type in `sla_service.py:178\`); `new_complaint`, `complaint_status_changed`, `sla_alert` (50/75/90%) also present — `sla_exceed_predicted`, `cluster_spike`, `agent_overload` still missing
+- [x] `GET /api/v1/ai/draft/{complaint_id}` exists and delegates to complaint draft generation
+- [x] `GET /api/v1/complaints/{complaint_id}/draft` exists
+- [x] `POST /api/v1/complaints/{id}/respond` resolves ticket, stores response notes, clears SLA, and can reply to Telegram
+- [x] `api/websocket.py` exists with supervisor WebSocket support
+- [x] Draft generation is centralized in `services/draft_service.py`; complaint and AI routes reuse it
+- [x] WebSocket broadcasts implemented for structured events: `violation_predicted`, `cluster_spike`, `agent_overload`
 
+### Week 5 - Remaining API surface
 
-### Week 5 — Remaining API surface
+- [x] `PUT /api/v1/complaints/{id}/status` with transition validation
+- [x] `GET /api/v1/agents/load`
+- [x] `GET /api/v1/analytics/trends`
+- [x] `POST /api/v1/simulation/run`
+- [x] `GET /api/v1/complaints/{id}/history`
+- [x] `GET /api/v1/ai/translate-preview`
+- [x] CORS allows `http://localhost:5173` and `http://localhost:3000`
+- [x] Complaint list filters support `status`, `channel`, `assigned_to`, `regulatory_flag`, `priority_tier`, `sla_tier`, and text search
+- [x] Analytics duration parser supports `12h`, `30d` string windows with corresponding aggregation buckets
+- [x] Aliases `GET /api/v1/kpis` and `GET /api/v1/escalations` are implemented
 
-- [x] `PUT /api/v1/complaints/{id}/status` with transition validation (roadmap rules differ slightly; repo has explicit `VALID_TRANSITIONS`)
-- [x] `GET /api/v1/agents/load` (`api/routes/agents.py`) — active load by department + agent
-- [x] `GET /api/v1/analytics/trends`(`?window=…`) — daily volume + category dist + avg severity + SLA compliance
-- [x] `POST /api/v1/simulation/run` — policy simulation (staffing, volume, policy mode)
-- [x] `GET /api/v1/complaints/{id}/history` — audit timeline events for complaint
-- [x] `GET /api/v1/ai/translate-preview` — Groq-based multi-language translation (`api/routes/ai.py:10`)
-- [x] CORS `allow_origins` includes `http://localhost:3000` AND `http://localhost:5173` (`api/main.py:31`)
+### Week 6 - Integration / polish
 
-### Week 6 — Integration / polish
-
-- [ ] `scripts/seed_demo.py` — 16 demo complaints exist (`scripts/seed_demo.py`, CUST_1001–CUST_1016); roadmap asks for 20; file is runnable and calls `run_pipeline()` per complaint
-- [ ] Request logging middleware
-- [ ] Full E2E timing/logging per agent node as specified
+- [x] `scripts/seed_demo.py` exists and inserts 20 Union Bank-style demo complaints
+- [x] Seed script calls `run_pipeline()` for each complaint
+- [x] Request logging middleware added to `api/main.py`
+- [x] Full per-agent node timing/logging implemented via agents/timing.py decorator
+- [x] `GET /api/v1/complaints/{id}/history` timestamp math bug fixed with `timedelta(seconds=2)`
 
 ---
 
-## Akash — ML Engineer + Infra (Kafka, DB, ML agents)
+## Akash - ML Engineer + Infra (Kafka, DB, ML agents)
 
 Source: [Roadmap_Akash.html](Roadmap_Akash.html)
 
-### Week 1 — Kafka + PostgreSQL + pgvector
+### Week 1 - Kafka + PostgreSQL + pgvector
 
-- [ ] `kafka/producer.py` — `publish_complaint`
-- [ ] `kafka/base_consumer.py` — `BaseConsumer`, DLQ handling
-- [ ] Topics: `complaints.inbound`, `complaints.dlq`, `complaints.translated`
-- [ ] `docker-compose.yml` — Zookeeper + Kafka + Postgres + pgvector bootstrap
-- [ ] `db/schema.sql` — full schema + `CREATE EXTENSION vector`
-- [ ] IVFFlat index on `embedding`
-- [ ] `db/connection.py` (roadmap); repo uses `api/db/session.py` for SQLAlchemy instead
-- [ ] Alembic migrations from schema
+- [x] `docker-compose.yml` includes Zookeeper, Kafka, Redis, and API services
+- [x] Database is intentionally externalized to Neon via `POSTGRES_URL`; no local PostgreSQL container is required
+- [x] `db/schema.sql` exists with `users`, `complaints`, `CREATE EXTENSION vector`, and vector index
+- [x] Vector index  HNSW implemented
+- [x] Alembic is initialized with `alembic/`, `alembic.ini`, and migration files under `alembic/versions/`
+- [x] `api/db/session.py` provides SQLAlchemy DB connection/session handling
+- [x] `kafka/producer.py` - publishes complaints to `complaints.inbound` topic
+- [x] `kafka/base_consumer.py` - base consumer with retry/DLQ support
+- [x] `scripts/create_kafka_topics.py` - topic bootstrap script
+- [x] `agents/inbound_consumer.py` - consumes inbound topic, runs pipeline, handles DLQ
 
-### Weeks 2–5 — ML pipeline + consumers
+### Weeks 2-5 - ML pipeline + consumers
 
-- [ ] `services/translation_service.py` (implemented, no `agents/translation_consumer.py`) + `agents/translation_consumer.py` (missing Kafka consumer)
-- [ ] `agents/dna_agent.py` — Groq-based clustering implemented; `DNAConsumer` Kafka consumer wrapper missing
-- [ ] `agents/severity_agent.py` — Groq-based weighted scoring implemented; `SeverityConsumer` Kafka consumer wrapper missing
-- [ ] `agents/emotion_agent.py` — Groq-based sentiment analysis implemented; `EmotionConsumer` Kafka consumer wrapper missing
-- [ ] `agents/escalation_agent.py` — Groq + heuristic SLA warning prediction implemented; `EscalationConsumer` Kafka consumer wrapper missing
-- [ ] `ml/generate_training_data.py`, `ml/train_sla_model.py`, `ml/sla_predictor.pkl` — all missing
+- [x] `services/translation_service.py` implemented
+- [x] `agents/dna_agent.py` implemented
+- [x] `agents/severity_agent.py` implemented
+- [x] `agents/emotion_agent.py` implemented
+- [x] `agents/escalation_agent.py` implemented
+- [ ] Kafka consumer wrappers missing: `translation_consumer.py`, `DNAConsumer`, `SeverityConsumer`, `EmotionConsumer`, `EscalationConsumer` (optional distributed processing)
+- [x] `ml/generate_training_data.py`, `ml/train_violation_model.py` created; `ml/violation_predictor.pkl` generated
+- [x] Escalation prediction uses trained model when available with heuristic fallback
 
-### Week 6 — Integration
+### Week 6 - Integration
 
-- [ ] All Kafka consumers running together + E2E with FastAPI + DB
+- [~] `agents/inbound_consumer.py` runs single consumer; full multi-consumer orchestration not implemented
+- [~] End-to-end API + DB + AI pipeline exists without Kafka
 
 ---
 
-## Hemant — Frontend Engineer
+## Hemant - Frontend Engineer
 
 Source: [Roadmap_Hemant.html](Roadmap_Hemant.html)
 
 ### Setup
 
-- [ ] `frontend/` Vite + React + TypeScript project
-- [ ] `src/styles/tokens.css` — design tokens
-- [ ] `src/api/client.ts` — Axios + Token interceptor
-- [ ] `src/types/complaint.ts` — interfaces aligned with API
-- [ ] React Router + protected routes + `Sidebar.tsx`
+- [x] `frontend/` Vite + React + TypeScript project exists
+- [x] Tailwind/theme styling exists in `frontend/src/index.css`
+- [x] Reusable marketing/demo components exist under `frontend/src/components/uccd/`
+- [x] Static API documentation data exists in `frontend/src/data/apiDocs.ts`
+- [x] Design tokens extracted to `frontend/src/styles/tokens.css` and imported in `index.css`
+- [x] `src/api/client.ts` exists with typed fetch client, bearer token handling, and 401 session clearing
+- [x] `src/types/complaint.ts` exists with API-aligned frontend types
+- [x] React Router + protected routes implemented
+- [x] App shell/sidebar implemented in `src/layout/AppShell.tsx`
 
 ### Screens (8)
 
-- [ ] **Screen 1** — Login (`LoginForm`, `RoleSelector`, `AuthContext`)
-- [ ] **Screen 2** — My Queue (`ComplaintRow`, `SLATimer`, `FilterPills`, …)
-- [ ] **Screen 3** — Complaint detail (`EmotionArcChart`, `ConversationHistory`, `AIDraftPanel`, `TriagePanel`, `NBAPanel`, …)
-- [ ] **Screen 4** — Supervisor Command Centre (`KPIBar`, `EscalationQueue`, `AgentLoadBars`, `AIFeed`, `VolumeChart`)
-- [ ] **Screen 5** — Regulatory dashboard
-- [ ] **Screen 6** — Insights / trends (`TrendLineChart`, `HeatmapGrid`, `DriversTable`)
-- [ ] **Screen 7** — Simulation sandbox
-- [ ] **Screen 8** — Complaint search
+- [~] Current frontend now has an operational app foundation plus the preserved landing page at `/landing`
+- [x] Screen 1 - Login (`LoginPage`, role presets, `AuthContext`)
+- [~] Screen 2 - My Queue initial implementation exists; full filters and SLA countdown still pending
+- [ ] Screen 3 - Complaint detail workspace (`EmotionArcChart`, `ConversationHistory`, `AIDraftPanel`, `TriagePanel`, `NBAPanel`)
+- [~] Screen 4 - Supervisor Command Centre initial KPI/escalation/load implementation exists; live feed and charts pending
+- [ ] Screen 5 - Regulatory dashboard
+- [ ] Screen 6 - Insights / trends dashboard
+- [ ] Screen 7 - Simulation sandbox
+- [~] Screen 8 - Complaint search route exists and reuses queue search; dedicated search UX pending
 
 ### Real-time / Week 5
 
-- [ ] `src/hooks/useWebSocket.ts` — reconnect, `lastMessage`
-- [ ] Supervisor UI wired to WebSocket + toasts
+- [x] `src/hooks/useWebSocket.ts` implemented with reconnect behavior
+
+- [ ] `src/hooks/useWebSocket.ts` missing
+- [ ] Supervisor UI wired to WebSocket + toasts missing
+- [x] `src/hooks/useInViewOnce.ts` exists for landing-page animations
 
 ---
 
-## Pritesh / Suryansh — Auth · SLA · DevOps · QA
+## Pritesh / Suryansh - Auth, SLA, DevOps, QA
 
-Sources: [Roadmap_Pritesh.html](Roadmap_Pritesh.html), [Roadmap_Suryansh.html](Roadmap_Suryansh.html) (same role split in roadmaps)
+Sources: [Roadmap_Pritesh.html](Roadmap_Pritesh.html), [Roadmap_Suryansh.html](Roadmap_Suryansh.html)
 
-### Week 1 — Docker + Redis + API
+### Week 1 - Docker + Redis + API
 
-- [x] `docker-compose.yml` — **Redis** + **api** service, `Dockerfile` build
-- [ ] Full stack per roadmap: Zookeeper, Kafka, Postgres, Redis, api in one compose
-- [ ] `Makefile` (`make up`, `make down`, `make logs`, `make seed`, `make test`)
-- [ ] `src/config.py` — pydantic `BaseSettings` for env
-- [ ] `.env.example` with `SARVAM_ACCESS_TOKEN` and full team vars
+- [x] `docker-compose.yml` includes Redis + API service
+- [x] `docker-compose.yml` includes Zookeeper + Kafka
+- [x] Compose intentionally excludes PostgreSQL because the project uses Neon DB through `POSTGRES_URL`
+- [x] `Makefile` exists with `up`, `down`, `logs`, `seed`, `test`, `build`, `migrate`, `shell`, `clean`
+- [x] `.env.example` includes Postgres, Redis, Kafka, JWT, Groq, Telegram, demo user, and Sarvam variables
+- [x] `api/config.py` centralizes env settings for Neon DB, Redis, Kafka, JWT, Groq, Sarvam, Telegram, and API host
 
-### Week 2 — Token + RBAC
+### Week 2 - Token + RBAC
 
-- [x] `POST /api/v1/auth/login` — issues Token (`api/routes/auth.py`)
-- [ ] `api/models/user.py` + users table + bcrypt-hashed credentials + seed users
-- [ ] `api/auth.py` — `create_access_token`, `verify_token`, `get_current_user`, `require_role`
-- [ ] OAuth2 bearer dependency on protected routes (login is public; complaints/dashboard open in current app)
+- [x] `api/models/user.py` exists with users table model and hashed password field
+- [x] `POST /api/v1/auth/login` queries DB users and issues JWT token
+- [x] `scripts/seed_users.py` + `make seed-users` create/update demo users in Neon DB
+- [x] JWT payload includes `sub`, `user_id`, `name`, `role`, `iat`, and `exp`
+- [x] `api/auth.py` exists with token helpers, password hashing, `get_current_user`, and `require_role`
+- [x] bcrypt/passlib password utilities implemented (`bcrypt==4.0.1`)
+- [x] Role checks applied to dashboard, analytics, agents, simulation, regulatory, history, and ai routes
 
-### Week 3 — Redis SLA engine
+### Week 3 - Redis SLA engine
 
-- [x] `services/sla_service.py` — Redis keys, `set_sla_timer`, `get_sla_status`, `check_all_sla`, `fire_sla_alert`, `clear_sla`
-- [x] APScheduler in `api/main.py` lifespan — job every **1 minute** (roadmap: 60s ✓)
-- [ ] `supervisor_notification_service` (roadmap mentions alongside WS)
-- [ ] On TTL expiry: roadmap says status `"overdue"`; repo sets `sla_breached=True` and may set `escalated` (verify product intent vs roadmap)
+- [x] `services/sla_service.py` implements Redis SLA keys, timer setup, status lookup, periodic checks, alert firing, and clearing
+- [x] APScheduler runs `check_all_sla` every 1 minute in `api/main.py`
+- [~] Supervisor notification is via WebSocket helper; no separate `supervisor_notification_service`
+- [~] Expiry behavior sets `sla_breached=True` and may escalate; roadmap expected an explicit `overdue` status
 
-### Week 4 — Agent load + regulatory
+### Week 4 - Agent load + regulatory
 
-- [ ] `services/agent_service.py` — queues, `compute_agent_load`, `get_best_agent`, `check_agent_loads`, `GET /api/v1/agents/load`
-- [ ] `services/regulatory_service.py` — regulatory Redis timers + `check_regulatory_deadlines` + `get_regulatory_status`
+- [x] `GET /api/v1/agents/load` exists in `api/routes/agents.py`
+- [x] `services/agent_service.py` extracts agent load computation
+- [x] `services/regulatory_service.py` implements Redis regulatory timers, status lookup, periodic checks, alert firing, and clearing
+- [x] APScheduler runs `check_all_regulatory` every 5 minutes in `api/main.py`
+- [x] Regulatory Redis timers and `GET /api/v1/regulatory/{complaint_id}/status` implemented
 
-### Week 5–6 — Tests + README + demo
+### Week 5-6 - Tests + README + demo
 
-- [ ] `tests/` — `test_auth.py`, `test_complaints.py`, `test_sla.py`, `test_agents.py`, `test_integration.py`
-- [ ] `README.md` — clone, `make up`, demo flow
-- [ ] Coordinate `scripts/seed_demo.py` with Abhineet roadmap (not present; `scripts/create_tables.py` exists only)
+- [x] Backend test suite with 6 test files: test_auth.py, test_complaints.py, test_sla.py, test_agents.py, test_history.py, test_integration.py
+- [x] Root `README.md` created with setup, demo path, and checklist
+- [x] Frontend `README.md` exists
+- [x] `scripts/create_tables.py` exists
+- [x] `scripts/seed_demo.py` exists with 20 complaints
+- [x] Frontend build verified (`npm run build` passes)
 
 ---
 
-## Quick summary
+## Quick Summary
 
-| Owner | Roughly done | Main gaps |
-|--------|----------------|------------|
-| **Abhineet** | Core API, NLP/Groq, LangGraph full orchestrator (NLP → emotion → dna → severity → escalation → root-cause → DB), WS, dashboard KPIs, escalations, agents/load, analytics/trends, simulation, history, translate-preview, respond route, CORS (5173+3000), seed script (runable) | `services/draft_service.py` missing as separate file (draft inline), WS message types not matching roadmap (`sla_exceed_predicted`/`cluster_spike`/`agent_overload` absent), seed script 16 vs 20 target, Kafka missing, request-log middleware missing, per-node E2E timing missing |
-| **Akash** | — | Entire Kafka (`kafka/` absent), Kafka-based ML agent consumers, db/schema.sql + pgvector, Alembic, `db/connection.py`, `ml/` training pipeline, kafka-based E2E |
-| **Hemant** | — | Entire app-level `frontend/` (only landing page exists); no API client, types, screens, hooks, router |
-| **Pritesh/Suryansh** | Redis SLA engine, Token login, APScheduler, Dockerfile | Full compose (Kafka/Postgres missing), `Makefile`, `src/config.py`, `api/models/user.py`, `api/auth.py`, RBAC/`require_role`, `services/agent_service.py`, `services/regulatory_service.py`, `tests/`, `README.md` |
+| Owner | Done | Partial | Main gaps |
+| --- | --- | --- | --- |
+| Abhineet | Core FastAPI routes, DB persistence, Groq/LangGraph pipeline (parallel), AI draft service/route, respond route, WebSocket alerts, analytics duration parser, simulation, history, translate preview, seed script (20 complaints), complaint filters, KPI/escalation aliases, Kafka producer, base consumer, topic script, timing logs, request logging middleware | Kafka orchestration absent | Kafka consumers, detail workspace |
+| Akash | Compose has Kafka/Zookeeper, Neon DB config, pgvector schema, Alembic, ML agent modules, kafka producer/consumer, topic script, trained ML model pipeline | HNSW instead of IVFFlat | Full consumer orchestration |
+| Hemant | Vite React TS project, polished landing/demo UI, API client, shared types, auth context/login, protected routes, app shell, initial queue/supervisor/search views, WebSocket hook | Styling lives in `index.css`; queue/supervisor/search are initial versions | Detail workspace, full queue filters/SLA timer, supervisor live feed/charts |
+| Pritesh/Suryansh | Redis SLA engine, DB-backed JWT login, scheduler, Makefile, env example, user model, auth helpers, Neon DB env setup, agent service, route protection, backend test suite, root README | Expiry sets sla_breached vs overdue status | Regulatory dashboard, Insights dashboard, Simulation sandbox |
 
 ---
 
-## Note on `scripts/`
+## Notes
 
-- [x] `scripts/create_tables.py` exists (not in original checklist; useful for local DB setup)
-- [ ] `scripts/seed_demo.py` — as per Abhineet Week 6 / Pritesh Week 6 roadmap
+- All 15 targeted tasks completed.
+- scikit-learn added to requirements.txt for ML model.
+- Frontend build produces 1.4MB JS bundle (chunk size warning >500KB).
+- The frontend now has an authenticated operational foundation; the next frontend gap is the complaint detail workspace and richer live dashboard behavior.

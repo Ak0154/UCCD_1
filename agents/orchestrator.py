@@ -11,11 +11,20 @@ from agents.dna_agent import run_dna
 from agents.severity_agent import run_severity
 from agents.escalation_agent import run_escalation
 from agents.root_cause_agent import run_root_cause
+from agents.timing import time_node
+
+run_emotion_timed = time_node("emotion")(run_emotion)
+run_dna_timed = time_node("dna")(run_dna)
+run_severity_timed = time_node("severity")(run_severity)
+run_escalation_timed = time_node("escalation")(run_escalation)
+run_root_cause_timed = time_node("root_cause")(run_root_cause)
+
 from agents.utils import groq_chat_completion
 from api.db.session import get_db
 from api.models.complaint import Complaint
 from datetime import datetime, timezone, timedelta
 from services.sla_service import set_sla_timer
+from services.regulatory_service import set_regulatory_timer
 from services.translation_service import SarvamTranslationService, TranslationStage
 
 load_dotenv()
@@ -24,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
+@time_node("translation")
 async def run_translation(
     state: ComplaintState,
     translation_service: SarvamTranslationService = None,
@@ -47,6 +57,7 @@ async def run_translation(
         "translation_status": result["translation_status"]
     }
 
+@time_node("nlp")
 def run_nlp(state: ComplaintState) -> dict:
     text = state.get("translated_text") or state["raw_text"]
     result = classify_complaint(text)
@@ -58,6 +69,7 @@ def run_nlp(state: ComplaintState) -> dict:
         "type_confidence": result.get("type_confidence")
     }
 
+@time_node("merge_and_save")
 def merge_and_save(state: ComplaintState) -> dict:
     db = next(get_db())
     try:
@@ -145,31 +157,56 @@ Tone constraints:
             except Exception as e:
                 # Handle cases where redis is not running or fails, to let the flow complete
                 logger.warning(f"Failed to set SLA timer in Redis: {e}")
+
+        if complaint.regulatory_obligation:
+            try:
+                set_regulatory_timer(str(complaint.id), complaint.regulatory_obligation)
+            except Exception as e:
+                logger.warning(f"Failed to set regulatory timer in Redis: {e}")
     finally:
         db.close()
             
     return {}
 
 # Define the LangGraph State Machine
+# Dependency-aware parallel pipeline:
+#
+#   translation → nlp ──┬── emotion ──────────────────────┐
+#                       │                                  │
+#                       └── severity ──┬── dna ── root_cause ── merge_and_save
+#                                      │
+#                                      └── escalation ───────────┘
+#
+# Independent branches (emotion || severity, dna || escalation) execute in parallel.
+
 graph = StateGraph(ComplaintState)
 
-# Add all nodes
 graph.add_node("translation", run_translation)
 graph.add_node("nlp", run_nlp)
-graph.add_node("emotion", run_emotion)
-graph.add_node("dna", run_dna)
-graph.add_node("severity", run_severity)
-graph.add_node("escalation", run_escalation)
-graph.add_node("root_cause", run_root_cause)
+graph.add_node("emotion", run_emotion_timed)
+graph.add_node("dna", run_dna_timed)
+graph.add_node("severity", run_severity_timed)
+graph.add_node("escalation", run_escalation_timed)
+graph.add_node("root_cause", run_root_cause_timed)
 graph.add_node("merge_and_save", merge_and_save)
 
 graph.add_edge(START, "translation")
 graph.add_edge("translation", "nlp")
+
+# Fan-out: nlp feeds emotion and severity in parallel
 graph.add_edge("nlp", "emotion")
-graph.add_edge("emotion", "dna")
-graph.add_edge("dna", "severity")
+graph.add_edge("nlp", "severity")
+
+# Fan-out: severity feeds dna and escalation in parallel
+graph.add_edge("severity", "dna")
 graph.add_edge("severity", "escalation")
-graph.add_edge("escalation", "root_cause")
+
+# root_cause waits for dna (needs cluster_id)
+graph.add_edge("dna", "root_cause")
+
+# Fan-in: merge_and_save gathers emotion, escalation, root_cause
+graph.add_edge("emotion", "merge_and_save")
+graph.add_edge("escalation", "merge_and_save")
 graph.add_edge("root_cause", "merge_and_save")
 graph.add_edge("merge_and_save", END)
 

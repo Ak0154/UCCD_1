@@ -1,253 +1,722 @@
-# UCCD Modular Task List for AI Agents (Incomplete Gaps Only)
+# UCCD Remaining Task List
 
-This file contains the master checklist of remaining, unimplemented tasks required to complete the Unified Customer Complaint Communication Dashboard (UCCD) POC. Completed features have been excluded so developer agents focus exclusively on the remaining gaps.
+This task list is rebuilt from `Roadmaps/PROGRESS.md`.
 
-> [!IMPORTANT]
-> ### Safety Filter Note
-> To prevent language model crashes and safety blocks, all tasks have been sanitized. Prohibited terms are mapped to safe vocabulary (e.g., SLA Violation instead of SLA Br-ach, Card Dispute / Unauthorized Charges instead of Fr-aud, Suspicious Link instead of Ph-shing, and Terminate instead of K-ll). Do not reintroduce the prohibited terms in comments, documents, or prompts.
+Legend:
+- `[x]` completed and no longer an active task
+- `[~]` partially implemented and needs follow-up
+- `[ ]` not implemented
 
----
-
-## 🛠️ Module 1: Infrastructure, Database & Message Brokers
-
-### TSK-1.1: Multi-Container Docker Orchestration
-* **Goal**: Expand `docker-compose.yml` to orchestrate Zookeeper, Kafka, PostgreSQL, and Redis along with the FastAPI application.
-* **Expected Input**: 
-  - Current [docker-compose.yml](file:///d:/UCCD/docker-compose.yml)
-* **Expected Output**: 
-  - Updated `docker-compose.yml` with health checks, proper service dependencies, and container network integrations.
-
-### TSK-1.2: Database Migration Schema & Vector Extension
-* **Goal**: Write a SQL script (`db/schema.sql`) to initialize the PostgreSQL schema, including tables for users and enable the `pgvector` extension with an IVFFlat index on embedding columns.
-* **Expected Input**: 
-  - SQLAlchemy model properties from [complaint.py](file:///d:/UCCD/api/models/complaint.py)
-* **Expected Output**: 
-  - File `db/schema.sql` containing DDL for `users` and embedding indices.
-
-### TSK-1.3: Alembic Database Migration Configuration
-* **Goal**: Setup Alembic migrations to manage database schema updates.
-* **Expected Input**: 
-  - Database connection URL and [session.py](file:///d:/UCCD/api/db/session.py)
-* **Expected Output**: 
-  - Initialized `alembic/` folder and initial migration scripts in `alembic/versions/`.
-
-### TSK-1.4: Makefile Development Commands
-* **Goal**: Create a `Makefile` in the project root to automate container execution, testing, and database seeding.
-* **Expected Input**: 
-  - Command line syntax for docker-compose and python scripts.
-* **Expected Output**: 
-  - A functioning `Makefile` with targets: `make up`, `make down`, `make logs`, `make seed`, and `make test`.
-
-### TSK-1.5: Environment Variables Template (`.env.example`)
-* **Goal**: Generate a `.env.example` file listing all required local environment configuration keys.
-* **Expected Input**: 
-  - Current configuration requirements in [session.py](file:///d:/UCCD/api/db/session.py) and external API key requirements.
-* **Expected Output**: 
-  - `.env.example` containing placeholders for database URLs, Redis configurations, Groq API keys, and server settings.
+Status note: Module 1 infrastructure, Neon DB setup, Alembic, schema, Makefile, `.env.example`, Docker API/Redis/Kafka services, and the base FastAPI/agent project structure are treated as complete. The tasks below focus on the remaining roadmap gaps only.
 
 ---
 
-## 🔑 Module 2: User Authentication & Role-Based Access Control (RBAC)
+## Module 1: Infrastructure, Database & Dev Setup
 
-### TSK-2.1: User Database Model & Password Encryption
-* **Goal**: Define the SQLAlchemy database schema for users and implement secure password hashing with bcrypt.
-* **Expected Input**: 
-  - User role mappings: `AGENT`, `SUPERVISOR`
-* **Expected Output**: 
-  - New model file `api/models/user.py` and password utilities in `api/auth.py`.
+### Status
 
-### TSK-2.2: User Security & Enhanced JWT Payload
-* **Goal**: Update JWT generation in the login route to include the user's ID, full name, and assigned role in the token payload.
-* **Expected Input**: 
-  - Current login handler in [auth.py](file:///d:/UCCD/api/routes/auth.py)
-* **Expected Output**: 
-  - `POST /api/v1/auth/login` returns a payload with fields: `access_token`, `token_type`, `role`, `user_id`, and `name`.
+- [x] Docker Compose includes API, Redis, Kafka, and Zookeeper.
+- [x] PostgreSQL is intentionally external through Neon DB using `POSTGRES_URL`.
+- [x] `db/schema.sql` exists with `users`, `complaints`, vector extension, and vector index.
+- [x] Alembic is configured with existing migrations.
+- [x] `Makefile` exists with development commands.
+- [x] `.env.example` includes Postgres/Neon, Redis, Kafka, JWT, Groq, Telegram, demo user, and Sarvam variables.
 
-### TSK-2.3: Dependency Injection for Route Authorization
-* **Goal**: Implement dependency helper functions (`get_current_user`, `require_role`) to protect endpoints from unauthorized access.
-* **Expected Input**: 
-  - JWT token and security schemas.
-* **Expected Output**: 
-  - Helpers that block and return 401/403 status codes for requests with invalid credentials or insufficient roles.
+### No Active Module 1 Tasks
+
+Do not add a local PostgreSQL container unless the project direction changes. Neon DB is the intended database target.
 
 ---
 
-## 📬 Module 3: Message Queue & Asynchronous Event Handlers
+## Module 2: Authentication & RBAC
 
-### TSK-3.1: Message Queue Producer Utility
-* **Goal**: Implement a publisher wrapper in `kafka/producer.py` to post incoming complaints to the message broker.
-* **Expected Input**: 
-  - Kafka broker addresses and JSON ticket schemas.
-* **Expected Output**: 
-  - File `kafka/producer.py` exporting `publish_complaint(complaint_data)`.
+### TSK-2.1: Central Settings Module
 
-### TSK-3.2: Base Message Queue Consumer Interface
-* **Goal**: Build a base consumer class in `kafka/base_consumer.py` that processes messages, handles retries, and forwards failures to a Dead Letter Queue (DLQ).
-* **Expected Input**: 
-  - Kafka library configurations.
-* **Expected Output**: 
-  - File `kafka/base_consumer.py` defining `BaseConsumer` class with error handling logic.
+**Status**: `[x]`
 
-### TSK-3.3: Inbound Pipeline Queue Consumer
-* **Goal**: Implement a worker daemon `agents/inbound_consumer.py` that listens on `complaints.inbound` topic, parses tickets, and triggers the orchestrator.
-* **Expected Input**: 
-  - Ticket message format from Kafka.
-* **Expected Output**: 
-  - Runnable consumer processing queue items and invoking the LangGraph pipeline.
+**Goal**: Add a central typed configuration module for environment variables.
 
-### TSK-3.4: Modular Queue Consumers for Pipeline Steps
-* **Goal**: Create wrapper consumers to delegate pipeline nodes to independent broker queues (e.g. sentiment analysis queue, semantic clustering queue).
-* **Expected Input**: 
-  - Topic subscriptions for pipeline stages.
-* **Expected Output**: 
-  - Modular consumer scripts (e.g. `agents/dna_consumer.py`, `agents/emotion_consumer.py`) handling specific processing steps asynchronously.
+**Expected input**:
+- `api/db/session.py`
+- `api/routes/auth.py`
+- `.env.example`
+- Current environment variable usage across `api/`, `services/`, and `agents/`
 
----
+**Expected output**:
+- New `api/config.py` or equivalent settings module using Pydantic settings.
+- Existing modules read config from one place instead of scattered `os.getenv` calls where practical.
+- Neon DB, Redis, Kafka, JWT, Groq, Sarvam, Telegram, and API host settings represented.
 
-## 🧠 Module 4: Machine Learning Models & Custom Agents
+### TSK-2.2: DB-Backed Login
 
-### TSK-4.1: Regression Model for SLA Deadline Violations (Training)
-* **Goal**: Implement training scripts (`ml/generate_training_data.py`, `ml/train_violation_model.py`) to build a regression model that predicts SLA deadline miss probability.
-* **Expected Input**: 
-  - Queue volumes, priority metrics, and response speed constants.
-* **Expected Output**: 
-  - Trained model file `ml/violation_predictor.pkl` estimating probability of missing the deadline.
+**Status**: `[x]`
 
-### TSK-4.2: Machine Learning SLA Violation Predictor Integration
-* **Goal**: Integrate the SLA violation regression model into `agents/escalation_agent.py` to flag tickets at risk of missing deadlines.
-* **Expected Input**: 
-  - Loaded model `violation_predictor.pkl`, current queue metrics, and ticket urgency from [escalation_agent.py](file:///d:/UCCD/agents/escalation_agent.py)
-* **Expected Output**: 
-  - Updated fields `breach_probability` (violation probability) and `pre_escalate` set to True if the probability exceeds 0.70.
+**Goal**: Replace env-only demo login with DB-backed users.
 
----
+**Expected input**:
+- `api/models/user.py`
+- `api/routes/auth.py`
+- Alembic migrations
 
-## 🔗 Module 5: API Extensions & Routing Enhancements
+**Expected output**:
+- Login queries the `users` table.
+- Inactive users are rejected.
+- Demo users can be seeded into Neon DB through a script or migration-safe seed command.
+- Env demo users are removed or kept only as an explicit fallback for local demo mode.
 
-### TSK-5.1: Ticket Queue Search & Advanced Filters
-* **Goal**: Expand `GET /api/v1/complaints` to support query parameters for agent assignment, priority, regulatory status, and textual search.
-* **Expected Input**: 
-  - Database session and [complaints.py](file:///d:/UCCD/api/routes/complaints.py#L76)
-* **Expected Output**: 
-  - Filtered JSON payload matching parameters (`assigned_to`, `regulatory_flag`, `tier`, `search`).
+### TSK-2.3: Password Hashing Utilities
 
-### TSK-5.2: Path Aliases for Analytics & Violation Queues
-* **Goal**: Add API routing redirects or handlers for `/api/v1/kpis` (pointing to `/api/v1/dashboard/kpis`) and `/api/v1/escalations` (pointing to `/api/v1/complaints/escalations`).
-* **Expected Input**: 
-  - APIRouter configuration.
-* **Expected Output**: 
-  - Accessing the alias paths returns the same schema as the main routes.
+**Status**: `[x]`
 
-### TSK-5.3: Analytics Timeframe Parser & Aggregator
-* **Goal**: Update `GET /api/v1/analytics/trends` to accept duration units (`12h`, `30d`) and aggregate metrics by corresponding timeframes (hourly vs. daily).
-* **Expected Input**: 
-  - Query parameters and [analytics.py](file:///d:/UCCD/api/routes/analytics.py#L10)
-* **Expected Output**: 
-  - Correct interval calculations, returning charts with grouped data points.
+**Goal**: Add secure password hashing and verification.
 
-### TSK-5.4: Dedicated Response Drafting Service
-* **Goal**: Refactor the auto-reply generator into a separate service `services/draft_service.py` supporting customized tone styles.
-* **Expected Input**: 
-  - Groq API configurations and customer text context.
-* **Expected Output**: 
-  - `services/draft_service.py` exporting `generate_draft(complaint, tone)`.
+**Expected input**:
+- `api/models/user.py`
+- `requirements.txt`
 
-### TSK-5.5: WebSocket Alert Broadcast Expansions
-* **Goal**: Update WebSocket messages to broadcast structured alerts for events like `violation_predicted`, `cluster_spike`, and `agent_overload`.
-* **Expected Input**: 
-  - Live ticket updates and [websocket.py](file:///d:/UCCD/api/websocket.py)
-* **Expected Output**: 
-  - Real-time broadcasts sent to active dashboard connections.
+**Expected output**:
+- New `api/auth.py` or `api/security.py` with password hash and verify helpers.
+- Bcrypt/passlib dependency added if not already present.
+- Seeded/demo users store hashed passwords, never plain text.
+
+### TSK-2.4: Enhanced JWT Payload
+
+**Status**: `[x]`
+
+**Goal**: Include complete user identity in JWTs and login responses.
+
+**Expected input**:
+- `api/routes/auth.py`
+- `api/models/user.py`
+
+**Expected output**:
+- `POST /api/v1/auth/login` returns `access_token`, `token_type`, `role`, `user_id`, `name`, and expiry metadata.
+- JWT payload includes `sub`, `user_id`, `name`, `role`, `iat`, and `exp`.
+
+### TSK-2.5: Route Authorization Dependencies
+
+**Status**: `[x]`
+
+**Goal**: Protect sensitive API routes by role.
+
+**Expected input**:
+- `api/routes/*.py`
+- JWT helper module from TSK-2.3/TSK-2.4
+
+**Expected output**:
+- [x] `get_current_user` dependency.
+- [x] `require_role(...)` dependency.
+- [x] Complaint status and respond routes require a valid bearer token.
+- [x] Role checks applied to dashboard, analytics, agents, simulation, regulatory, history, and ai routes.
+- Supervisor-only routes are protected where appropriate.
+- Invalid credentials return 401; insufficient role returns 403.
 
 ---
 
-## ⏳ Module 6: SLA Tracking & Dispatch Services
+## Module 3: Kafka Queue Layer
+
+### TSK-3.1: Kafka Producer Utility
+
+**Status**: `[x]`
+
+**Goal**: Publish newly created complaints to Kafka.
+
+**Expected input**:
+- `api/routes/complaints.py`
+- `docker-compose.yml`
+- `.env.example`
+
+**Expected output**:
+- New `kafka/producer.py` with `publish_complaint(complaint_data)`.
+- Producer reads broker config from settings/env.
+- Complaint create route can publish to `complaints.inbound`.
+- If Kafka is unavailable, API behavior is explicit: fail fast in strict mode or fall back to background pipeline in demo mode.
+
+### TSK-3.2: Base Consumer With Retry + DLQ
+
+**Status**: `[x]`
+
+**Goal**: Create a reusable consumer base for queue workers.
+
+**Expected input**:
+- Kafka broker configuration
+- Desired topics from roadmap: `complaints.inbound`, `complaints.dlq`, `complaints.translated`
+
+**Expected output**:
+- New `kafka/base_consumer.py`.
+- Common JSON decoding, retry handling, logging, and dead-letter publishing.
+- Clean shutdown behavior for worker processes.
+
+### TSK-3.3: Topic Bootstrap Script
+
+**Status**: `[x]`
+
+**Goal**: Make topic creation explicit and repeatable.
+
+**Expected input**:
+- `docker-compose.yml`
+- Kafka topic names
+
+**Expected output**:
+- Script or Make target to create required topics.
+- Topics include `complaints.inbound`, `complaints.dlq`, and `complaints.translated`.
+- Documented command in root README once README exists.
+
+### TSK-3.4: Inbound Pipeline Consumer
+
+**Status**: `[x]`
+
+**Goal**: Process inbound complaint messages from Kafka and run the existing LangGraph pipeline.
+
+**Expected input**:
+- `agents/orchestrator.py`
+- `kafka/base_consumer.py`
+- `kafka/producer.py`
+
+**Expected output**:
+- New `agents/inbound_consumer.py`.
+- Consumes `complaints.inbound`.
+- Calls `run_pipeline(...)` with complaint id, text, channel, customer id, language, and bot slots.
+- Writes failures to DLQ.
+
+### TSK-3.5: Optional Pipeline Step Consumers
+
+**Status**: `[x]`
+
+**Goal**: Add wrapper consumers for individual AI stages only if the team wants distributed processing.
+
+**Expected input**:
+- `agents/emotion_agent.py`
+- `agents/dna_agent.py`
+- `agents/severity_agent.py`
+- `agents/escalation_agent.py`
+- `services/translation_service.py`
+
+**Expected output**:
+- Optional worker files such as `agents/translation_consumer.py`, `agents/emotion_consumer.py`, `agents/dna_consumer.py`, `agents/severity_consumer.py`, and `agents/escalation_consumer.py`.
+- Each worker has clear input/output topic contracts.
+- **NOT IMPLEMENTED**: The orchestrator (`agents/inbound_consumer.py`) remains the single pipeline executor for sequential processing. Distributed consumers are documented as optional future work.
+
+---
+
+## Module 4: AI Pipeline, SLA Risk Model & Observability
+
+### TSK-4.1: Decide Sequential vs Parallel LangGraph Shape
+
+**Status**: `[x]`
+
+**Goal**: Align the pipeline implementation with the intended architecture.
+
+**Expected input**:
+- `agents/orchestrator.py`
+- `implementation_plan.md`
+
+**Expected output**:
+- [x] Parallel LangGraph pipeline shape implemented: emotion||severity → dna||escalation run in parallel after nlp.
+- Pipeline behavior is deterministic and documented.
+
+### TSK-4.2: Per-Agent Timing Logs
+
+**Status**: `[x]`
+
+**Goal**: Track execution time and result status for each pipeline node.
+
+**Expected input**:
+- `agents/orchestrator.py`
+- Existing logging setup
+
+**Expected output**:
+- Timing logs for translation, NLP, emotion, DNA, severity, escalation, root cause, and DB merge.
+- Failed nodes include complaint id and enough context to debug without exposing secrets.
+- Optional persisted timing metadata if needed for demo analytics.
+
+### TSK-4.3: Local SLA Risk Training Pipeline
+
+**Status**: `[x]`
+
+**Goal**: Add scripts for a trained local model that predicts SLA deadline risk.
+
+**Expected input**:
+- Existing complaint fields
+- Queue size and priority features
+- `agents/escalation_agent.py`
+
+**Expected output**:
+- [x] New `ml/generate_training_data.py`.
+- [x] New `ml/train_violation_model.py`.
+- [x] Generated model artifact `ml/violation_predictor.pkl`.
+- [x] Reproducible training instructions.
+
+### TSK-4.4: Integrate Trained SLA Risk Model
+
+**Status**: `[x]`
+
+**Goal**: Replace or augment the current heuristic/Groq risk score with the trained model.
+
+**Expected input**:
+- `agents/escalation_agent.py`
+- Model artifact from TSK-4.3
+
+**Expected output**:
+- [x] `breach_probability` uses the trained model when available with heuristic fallback.
+- [x] Fallback heuristic remains available for demo mode.
+- [x] `pre_escalate` is set when probability exceeds the configured threshold.
+
+---
+
+## Module 5: API Extensions & Routing
+
+### TSK-5.1: Complaint Search & Advanced Filters
+
+**Status**: `[x]`
+
+**Goal**: Expand `GET /api/v1/complaints` beyond `status` and `channel`.
+
+**Expected input**:
+- `api/routes/complaints.py`
+- `api/models/complaint.py`
+
+**Expected output**:
+- Query params for `assigned_to`, `regulatory_flag`, `priority_tier`, `sla_tier`, and `search`.
+- Text search covers useful fields such as customer id, raw text, complaint type, intent, and product code.
+- Pagination still works after filters.
+
+### TSK-5.2: Route Aliases
+
+**Status**: `[x]`
+
+**Goal**: Add judge/demo-friendly aliases for existing routes.
+
+**Expected input**:
+- `api/routes/dashboard.py`
+- `api/routes/complaints.py`
+- `api/main.py`
+
+**Expected output**:
+- `GET /api/v1/kpis` returns the same schema as `GET /api/v1/dashboard/kpis`.
+- `GET /api/v1/escalations` returns the same schema as `GET /api/v1/complaints/escalations`.
+
+### TSK-5.3: Analytics Duration Parser
+
+**Status**: `[x]`
+
+**Goal**: Support duration strings and matching aggregation buckets.
+
+**Expected input**:
+- `api/routes/analytics.py`
+
+**Expected output**:
+- [x] `GET /api/v1/analytics/trends?window=12h` returns hourly data.
+- [x] `GET /api/v1/analytics/trends?window=30d` returns daily data with daily aggregation.
+- Existing integer day window behavior remains backward compatible.
+
+### TSK-5.4: Dedicated Draft Service
+
+**Status**: `[x]`
+
+**Goal**: Move inline response generation into a service.
+
+**Expected input**:
+- `api/routes/complaints.py`
+- `api/routes/ai.py`
+- `agents/utils.py`
+- `services/translation_service.py`
+
+**Expected output**:
+- New `services/draft_service.py`.
+- Exports `generate_draft(complaint, tone)`.
+- Route handlers become thin and reuse the service.
+- Tone matching remains supported.
+
+### TSK-5.5: WebSocket Alert Expansion
+
+**Status**: `[x]`
+
+**Goal**: Broadcast structured dashboard events for high-value operational alerts.
+
+**Expected input**:
+- `api/websocket.py`
+- `services/sla_service.py`
+- `agents/escalation_agent.py`
+- `api/routes/agents.py`
+
+**Expected output**:
+- [x] Structured events for `violation_predicted`, `cluster_spike`, and `agent_overload`.
+- Existing complaint created/status/SLA alerts continue to work.
+- Event schema is documented for frontend consumers.
+
+### TSK-5.6: Fix Complaint History Timestamp Bug
+
+**Status**: `[x]`
+
+**Goal**: Fix likely runtime error in complaint history generation.
+
+**Expected input**:
+- `api/routes/history.py`
+
+**Expected output**:
+- [x] Replace invalid timestamp math with `timedelta(seconds=2)`.
+- [x] Add a focused test for `GET /api/v1/complaints/{id}/history` in `tests/test_history.py`.
+
+### TSK-5.7: Request Logging Middleware
+
+**Status**: `[x]`
+
+**Goal**: Add lightweight API request logging for demo and debugging.
+
+**Expected input**:
+- `api/main.py`
+
+**Expected output**:
+- [x] Middleware logs method, path, status code, duration, and request id.
+- Sensitive headers and body content are not logged.
+
+---
+
+## Module 6: SLA, Regulatory & Agent Dispatch Services
 
 ### TSK-6.1: Regulatory Timer Service
-* **Goal**: Manage strict regulatory compliance deadlines using Redis, exposing state query routes for supervisors.
-* **Expected Input**: 
-  - Redis database and ticket structures.
-* **Expected Output**: 
-  - Expose `GET /api/v1/regulatory/{complaint_id}/status` returning countdown parameters.
 
-### TSK-6.2: Agent Capacity & Dispatch Service
-* **Goal**: Calculate agent availability and allocate tickets based on active queue loads in Redis.
-* **Expected Input**: 
-  - Redis capacity sets and user roles.
-* **Expected Output**: 
-  - Allocation algorithm assigning new tickets to agents with lowest load, exposing `GET /api/v1/agents/load`.
+**Status**: `[x]`
 
----
+**Goal**: Track regulatory deadlines separately from normal SLA timers.
 
-## 🎨 Module 7: Premium Frontend Core & Authentication
+**Expected input**:
+- `services/sla_service.py`
+- `api/models/complaint.py`
+- Redis configuration
 
-### TSK-7.1: UI Setup & CSS Core Theme
-* **Goal**: Establish typography, custom spacing, glassmorphic styles, and colors in a global CSS sheet.
-* **Expected Input**: 
-  - CSS variables and responsive design guidelines.
-* **Expected Output**: 
-  - `src/styles/tokens.css` exposing variables and utilities.
+**Expected output**:
+- New `services/regulatory_service.py`.
+- Redis-backed regulatory timers for eligible complaints.
+- `GET /api/v1/regulatory/{complaint_id}/status`.
+- Periodic regulatory deadline checks integrated into scheduler.
 
-### TSK-7.2: API client & JWT Authorization Interceptor
-* **Goal**: Implement Axios client that appends bearer tokens and handles token expiration.
-* **Expected Input**: 
-  - Authentication storage.
-* **Expected Output**: 
-  - `src/api/client.ts` handling secure calls.
+### TSK-6.2: Agent Dispatch Service
 
-### TSK-7.3: Route Guard & Role Toggle Login Screen
-* **Goal**: Build credentials form with role selector and redirect agents or supervisors to their respective dashboards.
-* **Expected Input**: 
-  - React Router and Auth Context.
-* **Expected Output**: 
-  - Working login view protecting private routes.
+**Status**: `[x]`
 
----
+**Goal**: Move agent capacity and assignment logic out of the route layer.
 
-## 🖥️ Module 8: Premium Frontend Workspace & Dashboard Views
+**Expected input**:
+- `api/routes/agents.py`
+- `api/models/complaint.py`
+- Redis configuration
 
-### TSK-8.1: Agent Queue "My Queue" Interface
-* **Goal**: Build list workspace for agents displaying ticket cards with channel indicators, urgency tags, and SLA progress bars.
-* **Expected Input**: 
-  - Queue client calls.
-* **Expected Output**: 
-  - React list page supporting filters.
+**Expected output**:
+- [x] New `services/agent_service.py`.
+- [x] `compute_agent_load` function implemented.
+- [x] Existing `GET /api/v1/agents/load` delegates to the service.
 
-### TSK-8.2: 3-Column Detailed Workspace
-* **Goal**: Create workspace containing customer timeline details, interactive communications, AI draft responses, and classification tags.
-* **Expected Input**: 
-  - Component definitions.
-* **Expected Output**: 
-  - Intersecting layout allowing agent drafting, editing, and resolution dispatch.
+### TSK-6.3: SLA Expiry Status Decision
 
-### TSK-8.3: Supervisor Headquarters Dashboard
-* **Goal**: Assemble command center with operational charts, agent capacity gauges, and a real-time event ticker.
-* **Expected Input**: 
-  - Analytics hooks.
-* **Expected Output**: 
-  - Live supervisor dashboard visualizing performance metrics.
+**Status**: `[~]`
 
-### TSK-8.4: Live WebSocket Event Hooks
-* **Goal**: Create React hooks that manage live socket connections, pushing notifications to dashboard views.
-* **Expected Input**: 
-  - WebSocket connection endpoint.
-* **Expected Output**: 
-  - Live toast alerts and UI elements updating on socket push events.
+**Goal**: Decide whether expired tickets should use explicit `overdue` status or current `sla_breached=True` + escalation behavior.
+
+**Expected input**:
+- `services/sla_service.py`
+- `api/models/complaint.py`
+- Frontend/dashboard expectations
+
+**Expected output**:
+- Product decision documented.
+- Code updated if explicit `overdue` is required.
+- Dashboard KPI logic matches the chosen behavior.
 
 ---
 
-## 🧪 Module 9: E2E Testing & Demo Validation
+## Module 7: Frontend Core App Foundation
 
-### TSK-9.1: Comprehensive System Seed Script Update
-* **Goal**: Update seeding script to inject 20 diverse banking tickets and process them through the pipeline using Kafka producers.
-* **Expected Input**: 
-  - [seed_demo.py](file:///d:/UCCD/scripts/seed_demo.py).
-* **Expected Output**: 
-  - Population of realistic database rows for testing.
+### TSK-7.1: App Routing & Shell
 
-### TSK-9.2: Unit & Integration Test Suites
-* **Goal**: Write automated test files ensuring coverage for authentication, SLA management, and queues.
-* **Expected Input**: 
-  - pytest testing framework.
-* **Expected Output**: 
-  - Run `pytest` showing passing indicators for all core modules.
+**Status**: `[x]`
+
+**Goal**: Convert the current landing/demo frontend into an operational app shell.
+
+**Expected input**:
+- `frontend/src/App.tsx`
+- `frontend/src/components/uccd/`
+
+**Expected output**:
+- React Router configured.
+- Protected route layout.
+- Sidebar/app navigation.
+- Existing landing page preserved only if still useful as a public route.
+
+### TSK-7.2: API Client
+
+**Status**: `[x]`
+
+**Goal**: Add typed frontend API access.
+
+**Expected input**:
+- Backend routes in `api/routes/`
+- `frontend/package.json`
+
+**Expected output**:
+- New `frontend/src/api/client.ts`.
+- Authorization token handling.
+- Base URL configured from Vite env.
+- Error handling for expired/invalid tokens.
+
+### TSK-7.3: Frontend Types
+
+**Status**: `[x]`
+
+**Goal**: Add TypeScript interfaces aligned with backend schemas.
+
+**Expected input**:
+- `api/schemas/complaint.py`
+- Backend route response shapes
+
+**Expected output**:
+- New `frontend/src/types/complaint.ts`.
+- Shared types for complaints, KPI payloads, trends, agent load, history, draft responses, and WebSocket events.
+
+### TSK-7.4: Auth Context & Login Screen
+
+**Status**: `[x]`
+
+**Goal**: Build frontend auth flow.
+
+**Expected input**:
+- `api/routes/auth.py`
+- Frontend API client
+
+**Expected output**:
+- Login screen with credentials and role-aware redirect.
+- Auth context stores token and current user metadata.
+- Logout clears session.
+- Protected routes redirect unauthenticated users.
+
+### TSK-7.5: Design Token Cleanup
+
+**Status**: `[x]`
+
+**Goal**: Decide whether to keep theme tokens in `index.css` or move them to `src/styles/tokens.css`.
+
+**Expected input**:
+- `frontend/src/index.css`
+
+**Expected output**:
+- [x] Created `frontend/src/styles/tokens.css` with extracted design tokens.
+- [x] Imported tokens.css in `index.css`.
+
+---
+
+## Module 8: Frontend Operational Screens
+
+### TSK-8.1: Agent Queue
+
+**Status**: `[~]`
+
+**Goal**: Build "My Queue" for agents.
+
+**Expected input**:
+- `GET /api/v1/complaints`
+- `GET /api/v1/agents/load`
+- Complaint types from `frontend/src/types/complaint.ts`
+
+**Expected output**:
+- [x] Initial queue page with ticket list, status filter, and search.
+- [ ] Add full filter set for channel, assignment, priority, and regulatory flag.
+- [ ] Add SLA progress/countdown display.
+
+### TSK-8.2: Complaint Detail Workspace
+
+**Status**: `[ ]`
+
+**Goal**: Build the 3-column agent workspace.
+
+**Expected input**:
+- `GET /api/v1/complaints/{id}`
+- `GET /api/v1/complaints/{id}/history`
+- `GET /api/v1/ai/draft/{id}`
+- `POST /api/v1/complaints/{id}/respond`
+
+**Expected output**:
+- Customer context column.
+- Communication and editable AI draft column.
+- AI triage column with severity, emotion arc, cluster, regulatory data, and next actions.
+- Send response flow resolves the ticket.
+
+### TSK-8.3: Supervisor Command Center
+
+**Status**: `[~]`
+
+**Goal**: Build live supervisor dashboard.
+
+**Expected input**:
+- `GET /api/v1/dashboard/kpis`
+- `GET /api/v1/complaints/escalations`
+- `GET /api/v1/agents/load`
+- `GET /api/v1/analytics/trends`
+- WebSocket supervisor endpoint
+
+**Expected output**:
+- [x] Initial KPI ribbon.
+- [x] Initial escalation/risk queue.
+- [x] Initial agent capacity bars.
+- [ ] Live event feed.
+- [ ] Volume/severity trend visuals.
+
+### TSK-8.4: Regulatory Dashboard
+
+**Status**: `[ ]`
+
+**Goal**: Build supervisor/compliance view for regulatory cases.
+
+**Expected input**:
+- Regulatory service from TSK-6.1
+- Complaint filters from TSK-5.1
+
+**Expected output**:
+- Regulatory queue.
+- Deadline status per complaint.
+- Filters by deadline risk, status, channel, and category.
+
+### TSK-8.5: Insights & Trends Dashboard
+
+**Status**: `[ ]`
+
+**Goal**: Build analytics view using trends API.
+
+**Expected input**:
+- `GET /api/v1/analytics/trends`
+- Analytics duration parser from TSK-5.3
+
+**Expected output**:
+- Trend chart.
+- Category distribution.
+- SLA/risk summary.
+- Driver table or equivalent ranked insights.
+
+### TSK-8.6: Simulation Sandbox
+
+**Status**: `[ ]`
+
+**Goal**: Build UI for simulation endpoint.
+
+**Expected input**:
+- `POST /api/v1/simulation/run`
+
+**Expected output**:
+- Inputs for staff adjustment, volume spike, SLA override, and policy mode.
+- Baseline vs projected metrics.
+- Recommendation display.
+
+### TSK-8.7: Complaint Search
+
+**Status**: `[~]`
+
+**Goal**: Build search page over the complaint queue.
+
+**Expected input**:
+- Advanced filters from TSK-5.1
+
+**Expected output**:
+- [x] Initial search route reuses queue search.
+- [ ] Add dedicated sortable/filterable results.
+- [ ] Link results into complaint detail workspace.
+
+### TSK-8.8: WebSocket Hook & Toasts
+
+**Status**: `[x]`
+
+**Goal**: Add frontend live-update infrastructure.
+
+**Expected input**:
+- `api/websocket.py`
+- WebSocket event schema from TSK-5.5
+
+**Expected output**:
+- [x] New `frontend/src/hooks/useWebSocket.ts`.
+- [x] Reconnect behavior.
+- [x] `lastMessage` / event stream support.
+- Supervisor dashboard updates and toast notifications.
+
+---
+
+## Module 9: Demo Data, Tests & Documentation
+
+### TSK-9.1: Seed Script Update
+
+**Status**: `[x]`
+
+**Goal**: Expand demo seed data and align it with final ingestion architecture.
+
+**Expected input**:
+- `scripts/seed_demo.py`
+- Kafka producer from TSK-3.1 if queue flow is enabled
+
+**Expected output**:
+- [x] 20 diverse Union Bank-style complaints seeded.
+- [x] Demo records cover UPI, ATM, cards, loans, KYC, app downtime, pension, service quality, and regulatory cases.
+
+### TSK-9.2: Backend Test Suite
+
+**Status**: `[ ]`
+
+**Goal**: Add focused tests for core backend behavior.
+
+**Expected input**:
+- `api/routes/`
+- `agents/`
+- `services/`
+
+**Expected output**:
+- [x] `tests/test_auth.py`
+- [x] `tests/test_complaints.py`
+- [x] `tests/test_sla.py`
+- [x] `tests/test_agents.py`
+- [x] `tests/test_history.py`
+- [x] `tests/test_integration.py`
+- `pytest` runs without needing real external AI calls by using mocks.
+
+### TSK-9.3: Frontend Build Verification
+
+**Status**: `[x]`
+
+**Goal**: Keep frontend changes build-safe as operational screens are added.
+
+**Expected input**:
+- `frontend/package.json`
+
+**Expected output**:
+- [x] `npm run build` passes.
+- Add lightweight component or route tests if the project adds a frontend test runner.
+
+### TSK-9.4: Root README
+
+**Status**: `[x]`
+
+**Goal**: Add project-level setup and demo instructions.
+
+**Expected input**:
+- `Makefile`
+- `.env.example`
+- `docker-compose.yml`
+- `scripts/seed_demo.py`
+- Frontend README
+
+**Expected output**:
+- [x] Root `README.md`.
+- [x] Setup steps for Neon DB, Redis/Kafka/API, Groq, Sarvam, Telegram optional flow, seed data, backend run, frontend run, and demo path.
+- Mention that PostgreSQL is Neon-hosted, not local Docker.
+
+### TSK-9.5: Final Demo Checklist
+
+**Status**: `[x]`
+
+**Goal**: Define the judge-facing end-to-end demo path.
+
+**Expected input**:
+- Completed backend routes
+- Completed frontend screens
+- Seed data
+- WebSocket events
+
+**Expected output**:
+- [x] A short checklist in `README.md`.
+- [x] Steps show complaint ingestion, AI triage, SLA/risk indicators, agent response, supervisor live updates, analytics, and simulation.
