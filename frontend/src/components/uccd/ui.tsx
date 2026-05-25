@@ -17,13 +17,16 @@ export function Container({
 export function PrimaryButton({
   children,
   className = '',
+  onClick,
 }: {
   children: ReactNode
   className?: string
+  onClick?: () => void
 }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={`uccd-glow inline-flex h-10 cursor-pointer items-center justify-center rounded-full bg-accent px-4 text-sm font-medium text-black transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
     >
       {children}
@@ -34,13 +37,16 @@ export function PrimaryButton({
 export function GhostButton({
   children,
   className = '',
+  onClick,
 }: {
   children: ReactNode
   className?: string
+  onClick?: () => void
 }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={`inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-text transition hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${className}`}
     >
       {children}

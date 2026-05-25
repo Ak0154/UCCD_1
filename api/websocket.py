@@ -39,6 +39,35 @@ def broadcast_event(message: dict):
         except RuntimeError:
             asyncio.run(manager.broadcast(message))
 
+
+def broadcast_violation_predicted(complaint_id: str, breach_probability: float, reason: str = ""):
+    broadcast_event({
+        "type": "violation_predicted",
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "complaint_id": complaint_id,
+        "breach_probability": round(breach_probability, 4),
+        "reason": reason,
+    })
+
+
+def broadcast_cluster_spike(cluster_id: str, ticket_count: int):
+    broadcast_event({
+        "type": "cluster_spike",
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "cluster_id": cluster_id,
+        "ticket_count": ticket_count,
+    })
+
+
+def broadcast_agent_overload(agent_email: str, active_tickets: int, capacity: int):
+    broadcast_event({
+        "type": "agent_overload",
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "agent": agent_email,
+        "active_tickets": active_tickets,
+        "capacity": capacity,
+    })
+
 @router.websocket("/ws/supervisor")
 async def supervisor_ws(websocket: WebSocket):
     await manager.connect(websocket)

@@ -3,12 +3,17 @@ from sqlalchemy.orm import Session
 
 from api.db.session import get_db
 from api.models.complaint import Complaint
+from api.auth import require_role
+from api.models.user import User
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
 
 
 @router.get("/kpis")
-def get_kpis(db: Session = Depends(get_db)):
+def get_kpis(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
+):
     total = db.query(Complaint).count()
     open_count = db.query(Complaint).filter(Complaint.status != "resolved").count()
     escalated = db.query(Complaint).filter(Complaint.status == "escalated").count()

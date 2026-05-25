@@ -1,8 +1,8 @@
 from fastapi import APIRouter,Query,HTTPException,Depends,BackgroundTasks
 from uuid import uuid4
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from typing import Optional
 from api.schemas.complaint import ComplaintCreate, ComplaintResponse, ComplaintListResponse, StatusUpdate
-from agents.nlp_classifier import classify_complaint
 from api.db.session import get_db
 from sqlalchemy.orm import Session 
 from sqlalchemy import or_
@@ -11,13 +11,12 @@ from agents.orchestrator import run_pipeline
 from services.sla_service import get_sla_status, clear_sla
 from api.websocket import broadcast_event
 from pydantic import BaseModel
-from agents.utils import groq_chat_completion
-from services.translation_service import SarvamTranslationService, TranslationStage
+from services.draft_service import generate_draft
+from api.auth import require_role
+from api.models.user import User
+from kafka.producer import publish_complaint
 import os
-import logging
 import requests
-
-logger = logging.getLogger(__name__)
 
 class RespondResolveRequest(BaseModel):
     response_text: str
@@ -52,12 +51,30 @@ def create_complaint(complaint: ComplaintCreate,background_tasks: BackgroundTask
     db.commit()
     db.refresh(db_complaint)
 
+    complaint_id = str(db_complaint.id)
+    complaint_payload = {
+        "complaint_id": complaint_id,
+        "raw_text": complaint.raw_text,
+        "channel": complaint.channel,
+        "customer_id": complaint.customer_id,
+        "bot_slots": complaint.bot_slots,
+        "language_code": complaint.language_code,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    background_tasks.add_task(
+        publish_complaint,
+        complaint_payload,
+        topic="complaints.inbound",
+        key=complaint_id,
+    )
+
     background_tasks.add_task(
         broadcast_event,
         {
             "type": "complaint_created",
             "ts": datetime.now(timezone.utc).isoformat(),
-            "complaint_id": str(db_complaint.id),
+            "complaint_id": complaint_id,
             "status": db_complaint.status,
             "channel": db_complaint.channel,
             "customer_id": db_complaint.customer_id,
@@ -66,7 +83,7 @@ def create_complaint(complaint: ComplaintCreate,background_tasks: BackgroundTask
 
     background_tasks.add_task(
         run_pipeline,
-        complaint_id=str(db_complaint.id),
+        complaint_id=complaint_id,
         raw_text=complaint.raw_text,
         channel=complaint.channel,
         customer_id=complaint.customer_id,
@@ -79,8 +96,13 @@ def create_complaint(complaint: ComplaintCreate,background_tasks: BackgroundTask
 
 @router.get("",response_model=ComplaintListResponse)
 def list_complaints(
-    status: str = Query(None, description="Filter by complaint status"),
-    channel: str = Query(None, description="Filter by complaint channel"),
+    status: Optional[str] = Query(None, description="Filter by complaint status"),
+    channel: Optional[str] = Query(None, description="Filter by complaint channel"),
+    assigned_to: Optional[str] = Query(None, description="Filter by assigned agent"),
+    regulatory_flag: Optional[bool] = Query(None, description="Filter by regulatory flag"),
+    priority_tier: Optional[int] = Query(None, ge=1, le=5, description="Filter by priority tier"),
+    sla_tier: Optional[str] = Query(None, description="Filter by SLA tier"),
+    search: Optional[str] = Query(None, min_length=1, description="Search customer, text, type, intent, product, or cluster"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Number of complaints per page"),
     db: Session = Depends(get_db)
@@ -90,8 +112,29 @@ def list_complaints(
         filtered_complaints = filtered_complaints.filter(Complaint.status == status)
     if channel:
         filtered_complaints = filtered_complaints.filter(Complaint.channel == channel)
+    if assigned_to:
+        filtered_complaints = filtered_complaints.filter(Complaint.assigned_to == assigned_to)
+    if regulatory_flag is not None:
+        filtered_complaints = filtered_complaints.filter(Complaint.regulatory_flag.is_(regulatory_flag))
+    if priority_tier is not None:
+        filtered_complaints = filtered_complaints.filter(Complaint.priority_tier == priority_tier)
+    if sla_tier:
+        filtered_complaints = filtered_complaints.filter(Complaint.sla_tier == sla_tier)
+    if search:
+        term = f"%{search.strip()}%"
+        filtered_complaints = filtered_complaints.filter(
+            or_(
+                Complaint.customer_id.ilike(term),
+                Complaint.raw_text.ilike(term),
+                Complaint.complaint_type.ilike(term),
+                Complaint.intent.ilike(term),
+                Complaint.product_code.ilike(term),
+                Complaint.cluster_id.ilike(term),
+            )
+        )
 
     start = (page - 1) * limit
+    filtered_complaints = filtered_complaints.order_by(Complaint.created_at.desc())
     return {
         "total": filtered_complaints.count(),
         "page": page,
@@ -142,11 +185,13 @@ VALID_TRANSITIONS = {
     "escalated": []
     }
 
-# FIXME: This endpoint and respond_and_resolve_complaint below lack
-# authentication. A JWT dependency (Depends(get_current_user)) should be
-# added to all state-changing endpoints before production use.
 @router.put("/{complaint_id}/status",response_model=ComplaintResponse)
-def update_complaint_status(complaint_id:str, body: StatusUpdate, db: Session = Depends(get_db)):
+def update_complaint_status(
+    complaint_id:str,
+    body: StatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("AGENT", "SUPERVISOR")),
+):
     
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
     if complaint is None:
@@ -170,52 +215,46 @@ def update_complaint_status(complaint_id:str, body: StatusUpdate, db: Session = 
     )
     return complaint
 
+@router.put("/{complaint_id}/assign",response_model=ComplaintResponse)
+def assign_complaint(
+    complaint_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("AGENT")),
+):
+    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    if complaint is None:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+    if complaint.status not in ("queued", "new"):
+        raise HTTPException(status_code=422, detail=f"Cannot assign complaint in status {complaint.status}")
+    if complaint.assigned_to and complaint.assigned_to != current_user.email:
+        raise HTTPException(status_code=409, detail="Complaint already assigned to another agent")
+
+    old_status = complaint.status
+    complaint.assigned_to = current_user.email
+    if complaint.status == "queued":
+        complaint.status = "new"
+    db.commit()
+    db.refresh(complaint)
+
+    broadcast_event(
+        {
+            "type": "complaint_assigned",
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "complaint_id": str(complaint.id),
+            "agent": current_user.email,
+            "from": old_status,
+            "to": complaint.status,
+        }
+    )
+    return complaint
+
 @router.get("/{complaint_id}/draft")
 async def generate_response_draft(complaint_id: str, tone: str = Query("apologetic"), db: Session = Depends(get_db)):
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
-        
-    prompt = f"""You are a bank customer relations officer at Union Bank of India.
-Generate a professional, personalized response to this complaint:
-"{complaint.raw_text}"
 
-Tone constraints:
-- Use a "{tone}" tone.
-- Keep the response professional, clear, and reassuring.
-- Address the core customer intent: "{complaint.intent or 'resolving their query'}".
-- State that we are addressing the issue and provide a timeline or action steps.
-- The language of the response should match the language of the complaint if possible (e.g. English, Hindi, etc.).
-- Do not include any markdown styling, placeholder texts like '[Your Name]', or greeting system text. Just return the raw response message.
-"""
-    try:
-        completion = groq_chat_completion(
-            messages=[{"role": "user", "content": prompt}],
-            model="llama-3.1-8b-instant",
-            max_tokens=250
-        )
-        draft_text = completion.choices[0].message.content.strip()
-    except Exception as e:
-        draft_text = f"Dear Customer, we apologize for the inconvenience. We have received your complaint regarding {complaint.complaint_type or 'banking services'} and are investigating it. We will resolve it shortly."
-
-    detected_lang = complaint.detected_language or complaint.language_code
-    if detected_lang:
-        try:
-            svc = SarvamTranslationService()
-            translated = await svc.translate(
-                text=draft_text,
-                stage=TranslationStage.DRAFT,
-                target_lang=detected_lang
-            )
-            if translated["translation_status"] == "success":
-                complaint.ai_draft = translated["translated_text"]
-            else:
-                complaint.ai_draft = draft_text
-        except Exception as e:
-            logger.warning(f"Sarvam draft translation failed for complaint {complaint_id}: {e}")
-            complaint.ai_draft = draft_text
-    else:
-        complaint.ai_draft = draft_text
+    complaint.ai_draft = await generate_draft(complaint, tone=tone)
 
     db.commit()
     db.refresh(complaint)
@@ -223,7 +262,12 @@ Tone constraints:
     return {"complaint_id": complaint_id, "tone": tone, "draft": complaint.ai_draft}
 
 @router.post("/{complaint_id}/respond")
-def respond_and_resolve_complaint(complaint_id: str, body: RespondResolveRequest, db: Session = Depends(get_db)):
+def respond_and_resolve_complaint(
+    complaint_id: str,
+    body: RespondResolveRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("AGENT", "SUPERVISOR")),
+):
     complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")

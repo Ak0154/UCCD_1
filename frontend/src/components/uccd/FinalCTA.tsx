@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Container, PrimaryButton } from './ui'
 
 export function FinalCTA() {
@@ -14,8 +15,11 @@ export function FinalCTA() {
             Start with one complaint and watch intake, AI triage, routing, SLA
             risk, and response drafting come together in a single dashboard.
           </p>
-          <div className="mt-8 flex justify-center">
+          <div className="mt-8 flex justify-center gap-4">
             <PrimaryButton>Request demo</PrimaryButton>
+            <Link to="/login" className="inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-text transition hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              Login
+            </Link>
           </div>
         </div>
       </Container>

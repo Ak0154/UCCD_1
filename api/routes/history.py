@@ -1,12 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException
+from datetime import timedelta
 from sqlalchemy.orm import Session
 from api.db.session import get_db
 from api.models.complaint import Complaint
+from api.auth import get_current_user
+from api.models.user import User
 
 router = APIRouter(prefix="/api/v1/complaints", tags=["complaints"])
 
 @router.get("/{complaint_id}/history")
-def get_complaint_history(complaint_id: str, db: Session = Depends(get_db)):
+def get_complaint_history(
+    complaint_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     Constructs a dynamic audit history trail for the complaint.
     Returns chronologically ordered timeline events.
@@ -27,7 +34,7 @@ def get_complaint_history(complaint_id: str, db: Session = Depends(get_db)):
     })
 
     # 2. AI Triage Engine Event (assumed 2 seconds after creation)
-    triage_time = complaint.created_at + type(complaint.created_at).resolution(seconds=2)
+    triage_time = complaint.created_at + timedelta(seconds=2)
     triage_desc = f"NLP classifier set type to '{complaint.complaint_type or 'General'}' "
     if complaint.severity_score is not None:
         triage_desc += f"with severity score of {complaint.severity_score:.2f}."

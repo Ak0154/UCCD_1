@@ -4,6 +4,8 @@ from typing import Optional, Dict
 from sqlalchemy.orm import Session
 from api.db.session import get_db
 from api.models.complaint import Complaint
+from api.auth import require_role
+from api.models.user import User
 
 router = APIRouter(prefix="/api/v1/simulation", tags=["simulation"])
 
@@ -14,7 +16,11 @@ class SimulationRequest(BaseModel):
     policy_mode: str = "standard"  # "standard", "auto_refund", "bypass_kyc"
 
 @router.post("/run")
-def run_simulation(body: SimulationRequest, db: Session = Depends(get_db)):
+def run_simulation(
+    body: SimulationRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("SUPERVISOR")),
+):
     """
     Simulates operational performance parameters (SLA compliance, average resolution times,
     agent stress indices, cost impacts) under various staffing and volume load combinations.
