@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     full_name VARCHAR(255) NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('AGENT', 'SUPERVISOR')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('AGENT', 'SUPERVISOR', 'COMPLIANCE')),
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS outbound_messages (
     sent_at TIMESTAMPTZ DEFAULT NOW(),
     delivered_at TIMESTAMPTZ,
     error_message TEXT,
-    metadata JSONB DEFAULT '{}'
+    msg_metadata JSONB DEFAULT '{}'
 );
 CREATE INDEX IF NOT EXISTS idx_outbound_complaint ON outbound_messages(complaint_id);
 CREATE INDEX IF NOT EXISTS idx_outbound_channel ON outbound_messages(channel);

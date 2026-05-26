@@ -28,7 +28,7 @@ class OutboundMessageResponse(BaseModel):
     sent_at: Optional[datetime] = None
     delivered_at: Optional[datetime] = None
     error_message: Optional[str] = None
-    metadata: Optional[dict] = None
+    msg_metadata: Optional[dict] = None
 
     class Config:
         from_attributes = True

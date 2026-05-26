@@ -51,6 +51,11 @@ export interface Complaint {
   escalation_reason?: string | null
   pre_escalate?: boolean
   resolution_notes?: string | null
+  customer_name?: string | null
+  customer_email?: string | null
+  customer_phone?: string | null
+  account_number?: string | null
+  awaiting_details?: boolean
 }
 
 export interface ComplaintListResponse {
@@ -67,6 +72,10 @@ export interface ComplaintFilters {
   regulatory_flag?: boolean
   priority_tier?: number
   sla_tier?: string
+  sla_breached?: boolean
+  has_cluster?: boolean
+  has_draft?: boolean
+  has_root_cause?: boolean
   search?: string
   page?: number
   limit?: number
@@ -79,6 +88,38 @@ export interface DashboardKpis {
   in_progress: number
   escalated: number
   breached: number
+  resolved_today: number
+  resolution_rate: number
+  sla_at_risk: number
+  avg_resolution_hours: number
+  regulatory_flagged: number
+}
+
+export interface CategoryBreakdown {
+  categories: { name: string; count: number }[]
+}
+
+export interface ChannelDistribution {
+  channels: { name: string; count: number; percentage: number }[]
+}
+
+export interface RecentComplaintsResponse {
+  complaints: Complaint[]
+}
+
+export interface MyQueueResponse {
+  complaints: Complaint[]
+}
+
+export interface ComplaintCluster {
+  cluster_id: string
+  count: number
+  complaint_types: string[]
+  complaints: Complaint[]
+}
+
+export interface ClustersResponse {
+  clusters: ComplaintCluster[]
 }
 
 export interface AgentLoad {
@@ -106,39 +147,10 @@ export interface TrendsResponse {
   }
 }
 
-export interface RespondResolveResult {
-  status: string
-  message: string
+export interface DraftResponse {
   complaint_id: string
-  channel_sent: boolean
-}
-
-export interface ChannelStatusItem {
-  name: string
-  display_name: string
-  enabled: boolean
-  supports_inbound: boolean
-  supports_outbound: boolean
-  inbound_method: string
-}
-
-export interface ChannelStatusList {
-  channels: ChannelStatusItem[]
-}
-
-export interface OutboundMessageRecord {
-  id: string
-  complaint_id?: string | null
-  channel: string
-  source_ref?: string | null
-  message_text: string
-  direction: string
-  status: string
-  provider_message_id?: string | null
-  sent_at?: string | null
-  delivered_at?: string | null
-  error_message?: string | null
-  metadata?: Record<string, unknown> | null
+  tone: string
+  draft: string
 }
 
 export interface HistoryEvent {

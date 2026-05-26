@@ -65,14 +65,6 @@ app = FastAPI(title="Customer Complaint Management API", version="1.0", lifespan
 
 allow_origins = ["http://localhost:5173", "http://localhost:3000"]
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allow_origins,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
-
 @app.middleware("http")
 async def request_logging_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())[:8]
@@ -89,6 +81,14 @@ async def request_logging_middleware(request: Request, call_next):
     )
     response.headers["X-Request-ID"] = request_id
     return response
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allow_origins,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
 
 app.include_router(complaints_router)
 app.include_router(auth_router)

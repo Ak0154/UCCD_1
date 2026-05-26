@@ -32,7 +32,7 @@ def upgrade() -> None:
         sa.Column('sent_at', sa.DateTime(timezone=True), server_default=sa.text('now()')),
         sa.Column('delivered_at', sa.DateTime(timezone=True), nullable=True),
         sa.Column('error_message', sa.Text, nullable=True),
-        sa.Column('metadata', JSONB, server_default=sa.text("'{}'::jsonb")),
+        sa.Column('msg_metadata', JSONB, server_default=sa.text("'{}'::jsonb")),
     )
     op.create_index('idx_outbound_complaint', 'outbound_messages', ['complaint_id'])
     op.create_index('idx_outbound_channel', 'outbound_messages', ['channel'])

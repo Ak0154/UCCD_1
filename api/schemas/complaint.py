@@ -53,6 +53,11 @@ class ComplaintResponse(BaseModel):
     translation_status: Optional[str] = None
     attachments: Optional[dict] = None
     voice_transcript: Optional[dict] = None
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    account_number: Optional[str] = None
+    awaiting_details: Optional[bool] = False
 
     model_config = ConfigDict(from_attributes=True)
 

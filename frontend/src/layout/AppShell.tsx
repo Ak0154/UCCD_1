@@ -2,9 +2,10 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 const allNavItems = [
-  { label: 'Queue', path: '/app/queue', roles: ['AGENT', 'SUPERVISOR'] },
-  { label: 'Supervisor', path: '/app/supervisor', roles: ['SUPERVISOR'] },
-  { label: 'Search', path: '/app/search', roles: ['AGENT', 'SUPERVISOR'] },
+  { label: 'Dashboard', path: '/app/dashboard', roles: ['AGENT', 'SUPERVISOR', 'COMPLIANCE'] },
+  { label: 'Queue', path: '/app/classic/queue', roles: ['AGENT', 'SUPERVISOR'] },
+  { label: 'Supervisor', path: '/app/classic/supervisor', roles: ['SUPERVISOR'] },
+  { label: 'Search', path: '/app/classic/search', roles: ['AGENT', 'SUPERVISOR', 'COMPLIANCE'] },
 ]
 
 export function AppShell() {
@@ -16,10 +17,10 @@ export function AppShell() {
 
   function handleLogout() {
     logout()
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
-  const isAgentDashboard = location.pathname === '/app/queue' || location.pathname === '/app/search'
+  const isAgentDashboard = location.pathname === '/app/classic/queue' || location.pathname === '/app/classic/search'
   if (isAgentDashboard) {
     return (
       <div className="min-h-screen bg-dash-bg text-dash-text font-sans selection:bg-dash-primary/20 selection:text-white">

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/webhooks", tags=["webhooks"])
 
 
-def _verify_sendgrid_signature(payload: bytes, signature: str, webhook_key: str) -> bool:
+def _verify_mailgun_signature(payload: bytes, signature: str, webhook_key: str) -> bool:
     if not webhook_key or not signature:
         return False
     expected = hmac.new(webhook_key.encode(), payload, hashlib.sha256).hexdigest()
@@ -35,16 +35,16 @@ def _handle_complaint(event: WebhookEvent, complaint_payload: dict, db: Session)
 
 
 @router.post("/email")
-async def sendgrid_inbound(request: Request, db: Session = Depends(get_db)):
+async def mailgun_inbound(request: Request, db: Session = Depends(get_db)):
     settings = get_settings()
     if not settings.email.is_configured():
         raise HTTPException(status_code=503, detail="Email channel not configured")
 
     body = await request.body()
-    signature = request.headers.get("X-Twilio-Email-Event-Webhook-Signature", "")
+    signature = request.headers.get("Mailgun-Signature", "")
 
     if settings.email.inbound_webhook_key:
-        if not _verify_sendgrid_signature(body, signature, settings.email.inbound_webhook_key):
+        if not _verify_mailgun_signature(body, signature, settings.email.inbound_webhook_key):
             raise HTTPException(status_code=401, detail="Invalid webhook signature")
 
     try:
@@ -62,11 +62,10 @@ async def sendgrid_inbound(request: Request, db: Session = Depends(get_db)):
     db.commit()
 
     try:
-        envelopes = payload.get("envelope", {})
-        from_addr = envelopes.get("from", payload.get("from", ""))
+        from_addr = payload.get("sender", payload.get("from", ""))
         subject = payload.get("subject", "")
-        text = payload.get("text", payload.get("html", ""))
-        sg_message_id = payload.get("sg_message_id", "")
+        text = payload.get("text", payload.get("stripped-text", payload.get("body", "")))
+        message_id = payload.get("Message-Id", payload.get("message-id", ""))
 
         if not text or not from_addr:
             event.processed = True
@@ -77,14 +76,14 @@ async def sendgrid_inbound(request: Request, db: Session = Depends(get_db)):
         complaint_payload = {
             "customer_id": from_addr,
             "channel": "email",
-            "source_ref": sg_message_id or from_addr,
+            "source_ref": message_id or from_addr,
             "raw_text": f"Subject: {subject}\n\n{text}",
-            "bot_slots": {"email_subject": subject, "sg_message_id": sg_message_id},
+            "bot_slots": {"email_subject": subject, "message_id": message_id},
         }
         _handle_complaint(event, complaint_payload, db)
 
     except Exception as e:
-        logger.error(f"SendGrid webhook processing failed: {e}")
+        logger.error(f"Mailgun webhook processing failed: {e}")
         event.error_message = str(e)
 
     db.commit()

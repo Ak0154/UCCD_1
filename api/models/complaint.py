@@ -16,6 +16,16 @@ class Complaint(Base):
     channel = Column(String, nullable=False)
     source_ref = Column(String, nullable=True)
 
+    # User contact details
+    customer_name = Column(String, nullable=True)
+    customer_email = Column(String, nullable=True)
+    customer_phone = Column(String, nullable=True)
+    account_number = Column(String, nullable=True)
+
+    # Complaint collection workflow
+    awaiting_details = Column(Boolean, default=False, nullable=False)
+    details_requested_at = Column(DateTime(timezone=True), nullable=True)
+
     raw_text = Column(Text, nullable=False)
     language_code = Column(String, nullable=True)
     detected_language = Column(String, nullable=True)

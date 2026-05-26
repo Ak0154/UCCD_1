@@ -3,6 +3,7 @@ from datetime import timedelta
 from sqlalchemy.orm import Session
 from api.db.session import get_db
 from api.models.complaint import Complaint
+from api.routes.complaints import find_complaint
 from api.auth import get_current_user
 from api.models.user import User
 
@@ -18,7 +19,7 @@ def get_complaint_history(
     Constructs a dynamic audit history trail for the complaint.
     Returns chronologically ordered timeline events.
     """
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 

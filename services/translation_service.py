@@ -61,9 +61,9 @@ class SarvamTranslationService:
             "target_lang": target_lang or "en-IN",
         }
 
-    async def _call_sarvam(self, payload: dict) -> dict:
+    async def _call_sarvam(self, payload: dict, endpoint: str = "/translate") -> dict:
         client = self._get_client()
-        response = await client.post("/translate", json=payload)
+        response = await client.post(endpoint, json=payload)
         if response.status_code >= 500:
             response.raise_for_status()
         if response.status_code >= 400:
@@ -71,14 +71,14 @@ class SarvamTranslationService:
         return response.json()
 
     async def _call_with_fallback(
-        self, primary_payload: dict, fallback_payload: dict, original_text: str
+        self, primary_payload: dict, fallback_payload: dict, original_text: str, endpoint: str = "/translate"
     ) -> dict:
         try:
-            return await self._call_sarvam(primary_payload)
+            return await self._call_sarvam(primary_payload, endpoint)
         except Exception as e:
             logger.error(f"[Sarvam] Primary translation failed: {e}")
             try:
-                return await self._call_sarvam(fallback_payload)
+                return await self._call_sarvam(fallback_payload, endpoint)
             except Exception as e2:
                 logger.error(f"[Sarvam] Fallback translation failed: {e2}")
                 return {
@@ -172,5 +172,45 @@ class SarvamTranslationService:
                 "detected_language": None,
                 "model_used": None,
                 "mode_used": None,
+                "translation_status": "failed",
+            }
+
+    async def generate_multilingual_reply(
+        self,
+        prompt: str,
+        target_lang: Optional[str] = None,
+        system_prompt: Optional[str] = None,
+    ) -> dict:
+        """Generate a reply using Sarvam-105B in the user's language."""
+        if not self.api_key:
+            return {
+                "generated_text": prompt,
+                "translated_text": None,
+                "translation_status": "skipped",
+            }
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload = {
+            "model": "sarvam-105b",
+            "messages": messages,
+            "temperature": 0.7,
+            "top_p": 1,
+        }
+
+        try:
+            result = await self._call_sarvam(payload, "/v1/chat/completions")
+            generated = result.get("choices", [{}])[0].get("message", {}).get("content", prompt)
+            return {
+                "generated_text": generated,
+                "translation_status": "success",
+            }
+        except Exception as e:
+            logger.error(f"[Sarvam-105B] Generation failed: {e}")
+            return {
+                "generated_text": prompt,
                 "translation_status": "failed",
             }

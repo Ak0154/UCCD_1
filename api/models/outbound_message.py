@@ -21,4 +21,4 @@ class OutboundMessage(Base):
     sent_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     delivered_at = Column(DateTime(timezone=True), nullable=True)
     error_message = Column(Text, nullable=True)
-    metadata = Column(JSONB, default=dict)
+    msg_metadata = Column('msg_metadata', JSONB, default=dict)
