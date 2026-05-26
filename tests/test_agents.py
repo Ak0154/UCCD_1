@@ -2,7 +2,7 @@ from services.agent_service import compute_agent_load, get_best_agent, check_age
 
 
 def test_compute_agent_load_empty(monkeypatch):
-    """compute_agent_load returns empty dict when no active assigned complaints."""
+    """compute_agent_load returns dict with all specialist agents set to 0 when no active assigned complaints."""
     mock_db = type("MockDB", (), {
         "query": lambda *args, **kwargs: type("MockQuery", (), {
             "filter": lambda self, *args, **kwargs: type("MockQ", (), {
@@ -16,12 +16,14 @@ def test_compute_agent_load_empty(monkeypatch):
     })()
     result = compute_agent_load(mock_db)
     assert isinstance(result, dict)
-    assert len(result) == 0
+    assert len(result) == 5
+    assert all(val == 0 for val in result.values())
 
 
 def test_get_best_agent_none_when_empty(monkeypatch):
-    """get_best_agent returns None when no agents exist."""
+    """get_best_agent returns None when no agents exist in the system."""
     monkeypatch.setattr("services.agent_service.compute_agent_load", lambda db: {})
+    monkeypatch.setattr("services.agent_service.AGENT_DEPARTMENT_MAP", {})
     result = get_best_agent(None)
     assert result is None
 

@@ -1,14 +1,43 @@
+import json
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends
+from sqlalchemy import func, event
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from api.db.session import get_db
 from api.models.complaint import Complaint
 from api.auth import require_role
 from api.models.user import User
+from services.cache import r
 
 router = APIRouter(prefix="/api/v1/dashboard", tags=["dashboard"])
+
+
+def clear_dashboard_cache():
+    """Invalidate all dashboard-related cache keys."""
+    try:
+        keys = r.keys("dashboard:*")
+        if keys:
+            for k in keys:
+                r.delete(k)
+    except Exception as e:
+        print(f"Failed to clear dashboard cache: {e}")
+
+
+# Register SQLAlchemy ORM event listeners to invalidate the cache automatically on write operations.
+@event.listens_for(Complaint, "after_insert")
+def on_complaint_insert(mapper, connection, target):
+    clear_dashboard_cache()
+
+
+@event.listens_for(Complaint, "after_update")
+def on_complaint_update(mapper, connection, target):
+    clear_dashboard_cache()
+
+
+@event.listens_for(Complaint, "after_delete")
+def on_complaint_delete(mapper, connection, target):
+    clear_dashboard_cache()
 
 
 @router.get("/kpis")
@@ -16,34 +45,57 @@ def get_kpis(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
-    total = db.query(Complaint).count()
-    open_count = db.query(Complaint).filter(Complaint.status != "resolved").count()
-    escalated = db.query(Complaint).filter(Complaint.status == "escalated").count()
-    breached = db.query(Complaint).filter(Complaint.sla_breached.is_(True)).count()
-    queued = db.query(Complaint).filter(Complaint.status == "queued").count()
-    in_progress = db.query(Complaint).filter(Complaint.status == "in_progress").count()
+    # Scope KPI cache key by role and agent email to support private queues vs global stats
+    if current_user.role == "AGENT":
+        cache_key = f"dashboard:kpis:AGENT:{current_user.email}"
+    else:
+        cache_key = f"dashboard:kpis:{current_user.role}:all"
+
+    try:
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        pass
+
+    # Start base query
+    query = db.query(Complaint)
+
+    # Filter by assigned agent if the current user is an Agent
+    if current_user.role == "AGENT":
+        query = query.filter(Complaint.assigned_to == current_user.email)
+
+    total = query.count()
+    open_count = query.filter(Complaint.status != "resolved").count()
+    escalated = query.filter(Complaint.status == "escalated").count()
+    breached = query.filter(Complaint.sla_breached.is_(True)).count()
+    queued = query.filter(Complaint.status == "queued").count()
+    in_progress = query.filter(Complaint.status == "in_progress").count()
 
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    resolved_today = db.query(Complaint).filter(
+    resolved_today = query.filter(
         Complaint.status == "resolved",
         Complaint.resolved_at >= today,
     ).count()
 
-    resolved = db.query(Complaint).filter(Complaint.status == "resolved").count()
+    resolved = query.filter(Complaint.status == "resolved").count()
     resolution_rate = round((resolved / total * 100) if total > 0 else 100.0, 1)
 
-    sla_at_risk = db.query(Complaint).filter(
+    sla_at_risk = query.filter(
         Complaint.status != "resolved",
         Complaint.sla_deadline.isnot(None),
         Complaint.sla_deadline <= datetime.now(timezone.utc) + timedelta(hours=2),
         Complaint.sla_breached.is_(False),
     ).count()
 
-    resolved_times = db.query(Complaint.resolved_at, Complaint.created_at).filter(
+    resolved_times_query = db.query(Complaint.resolved_at, Complaint.created_at).filter(
         Complaint.status == "resolved",
         Complaint.resolved_at.isnot(None),
         Complaint.resolved_at >= datetime.now(timezone.utc) - timedelta(days=30),
-    ).all()
+    )
+    if current_user.role == "AGENT":
+        resolved_times_query = resolved_times_query.filter(Complaint.assigned_to == current_user.email)
+    resolved_times = resolved_times_query.all()
 
     avg_seconds = 0.0
     if resolved_times:
@@ -53,12 +105,12 @@ def get_kpis(
 
     avg_hours = round(avg_seconds / 3600, 1)
 
-    regulatory_flagged = db.query(Complaint).filter(
+    regulatory_flagged = query.filter(
         Complaint.regulatory_flag.is_(True),
         Complaint.status != "resolved",
     ).count()
 
-    return {
+    res = {
         "total": total,
         "open": open_count,
         "queued": queued,
@@ -72,23 +124,43 @@ def get_kpis(
         "regulatory_flagged": regulatory_flagged,
     }
 
+    try:
+        r.setex(cache_key, 60, json.dumps(res))
+    except Exception:
+        pass
+    return res
+
 
 @router.get("/categories")
 def get_categories(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
+    cache_key = "dashboard:categories"
+    try:
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        pass
+
     results = db.query(
         Complaint.complaint_type,
         func.count(Complaint.id),
     ).group_by(Complaint.complaint_type).order_by(func.count(Complaint.id).desc()).all()
 
-    return {
+    res = {
         "categories": [
             {"name": cat or "unclassified", "count": count}
             for cat, count in results
         ]
     }
+
+    try:
+        r.setex(cache_key, 60, json.dumps(res))
+    except Exception:
+        pass
+    return res
 
 
 @router.get("/channels")
@@ -96,6 +168,14 @@ def get_channels(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
+    cache_key = "dashboard:channels"
+    try:
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        pass
+
     results = db.query(
         Complaint.channel,
         func.count(Complaint.id),
@@ -103,12 +183,18 @@ def get_channels(
 
     total = sum(count for _, count in results)
 
-    return {
+    res = {
         "channels": [
             {"name": ch, "count": count, "percentage": round((count / total * 100) if total > 0 else 0, 1)}
             for ch, count in results
         ]
     }
+
+    try:
+        r.setex(cache_key, 60, json.dumps(res))
+    except Exception:
+        pass
+    return res
 
 
 @router.get("/recent")
@@ -118,8 +204,22 @@ def get_recent_complaints(
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
     from api.schemas.complaint import ComplaintResponse
+    cache_key = f"dashboard:recent:{limit}"
+    try:
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        pass
+
     complaints = db.query(Complaint).order_by(Complaint.created_at.desc()).limit(limit).all()
-    return {"complaints": [ComplaintResponse.model_validate(c) for c in complaints]}
+    res = {"complaints": [ComplaintResponse.model_validate(c).model_dump(mode="json") for c in complaints]}
+
+    try:
+        r.setex(cache_key, 60, json.dumps(res))
+    except Exception:
+        pass
+    return res
 
 
 @router.get("/my-queue")
@@ -129,11 +229,25 @@ def get_my_queue(
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
     from api.schemas.complaint import ComplaintResponse
+    cache_key = f"dashboard:my-queue:{current_user.email}:{limit}"
+    try:
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        pass
+
     complaints = db.query(Complaint).filter(
         Complaint.assigned_to == current_user.email,
         Complaint.status != "resolved",
     ).order_by(Complaint.sla_deadline.asc().nullslast()).limit(limit).all()
-    return {"complaints": [ComplaintResponse.model_validate(c) for c in complaints]}
+    res = {"complaints": [ComplaintResponse.model_validate(c).model_dump(mode="json") for c in complaints]}
+
+    try:
+        r.setex(cache_key, 60, json.dumps(res))
+    except Exception:
+        pass
+    return res
 
 
 @router.get("/clusters")
@@ -142,6 +256,13 @@ def get_clusters(
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
     from api.schemas.complaint import ComplaintResponse
+    cache_key = "dashboard:clusters"
+    try:
+        cached = r.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    except Exception:
+        pass
 
     clusters = db.query(Complaint).filter(
         Complaint.cluster_id.isnot(None)
@@ -161,10 +282,14 @@ def get_clusters(
             "cluster_id": cluster_id,
             "count": len(comps),
             "complaint_types": types,
-            "complaints": [ComplaintResponse.model_validate(co) for co in comps],
+            "complaints": [ComplaintResponse.model_validate(co).model_dump(mode="json") for co in comps],
         })
 
     result.sort(key=lambda x: x["count"], reverse=True)
+    res = {"clusters": result}
 
-    return {"clusters": result}
-
+    try:
+        r.setex(cache_key, 60, json.dumps(res))
+    except Exception:
+        pass
+    return res

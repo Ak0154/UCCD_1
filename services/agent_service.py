@@ -55,6 +55,7 @@ COMPLAINT_TYPE_TO_DEPT: dict[str, str] = {
 
 def compute_agent_load(db: Session) -> dict[str, int]:
     from sqlalchemy import func
+    loads = {agent: 0 for agent in AGENT_DEPARTMENT_MAP.keys()}
     results = (
         db.query(Complaint.assigned_to, func.count(Complaint.id))
         .filter(Complaint.status != "resolved")
@@ -62,7 +63,10 @@ def compute_agent_load(db: Session) -> dict[str, int]:
         .group_by(Complaint.assigned_to)
         .all()
     )
-    return {agent or "unassigned": count for agent, count in results}
+    for agent, count in results:
+        if agent:
+            loads[agent] = count
+    return loads
 
 
 def get_department_for_complaint(complaint_type: Optional[str]) -> str:

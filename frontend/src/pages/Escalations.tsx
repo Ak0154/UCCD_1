@@ -73,18 +73,25 @@ export function Escalations() {
   const [selectedEsc, setSelectedEsc] = useState<Esc | null>(null)
   const [showRiskDetail, setShowRiskDetail] = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetchEscalations = () => {
+    setLoading(true)
+    setError(null)
     api.getEscalations({ limit: 50 })
       .then((res) => {
         const mapped = res.complaints.map(mapToRow)
         setEscalations(mapped)
         if (mapped.length > 0) setSelectedEsc(mapped[0])
-        setLoading(false)
       })
       .catch((err) => {
         setError(err instanceof Error ? err.message : 'Failed to load escalations')
+      })
+      .finally(() => {
         setLoading(false)
       })
+  }
+
+  useEffect(() => {
+    fetchEscalations()
   }, [])
 
   const toggleSelect = (id: string) => {
@@ -112,12 +119,13 @@ export function Escalations() {
     return 0
   })
 
-  const handleEscalate = async (complaintId: string) => {
+  const handleEscalate = async (id: string) => {
     try {
-      await api.updateStatus(complaintId, 'escalated')
-      window.location.reload()
+      await api.updateStatus(id, 'escalated')
+      alert('Case escalated successfully')
+      fetchEscalations()
     } catch {
-      alert('Failed to escalate')
+      alert('Failed to escalate complaint')
     }
   }
 
@@ -278,8 +286,8 @@ export function Escalations() {
                         <div style={{ fontSize: 12, fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.customer}</div>
                         <div style={{ fontSize: 11, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.summary}</div>
                       </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: '#374151' }}>{e.escalatedTo}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.escalatedTo}>{e.escalatedTo}</div>
                         <span style={{ padding: '1px 6px', borderRadius: 8, fontSize: 9, fontWeight: 600, color: st.text, background: st.bg }}>{e.status}</span>
                       </div>
                       <div onClick={(ev) => { ev.stopPropagation(); setShowRiskDetail(showRiskDetail === e.escId ? null : e.escId) }}>
@@ -385,9 +393,9 @@ export function Escalations() {
                     <div style={{ fontSize: 11, color: '#16A34A', fontWeight: 600 }}>Confidence: 94%</div>
                   </div>
 
-                  <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 12, padding: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>AI Draft Communication</div>
-                    <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#374151', lineHeight: 1.5 }}>
+                  <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: 12, padding: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#0369A1', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>AI Draft Communication</div>
+                    <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#0C4A6E', lineHeight: 1.5 }}>
                       Dear Customer, we are actively investigating and have escalated your issue. Ref: {selectedEsc.escId}. We will update you within 2 hours.
                     </p>
                     <div style={{ display: 'flex', gap: 8 }}>
