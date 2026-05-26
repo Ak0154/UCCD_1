@@ -1,7 +1,5 @@
 import asyncio
-import os
 import logging
-import requests
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END
 from agents.state import ComplaintState
@@ -107,15 +105,12 @@ def merge_and_save(state: ComplaintState) -> dict:
 
         db.commit()
 
-        # Send live updates to Telegram customer on pipeline completion
-        if complaint.channel.lower() == "telegram" and complaint.source_ref:
+        # Send live updates to customer on pipeline completion via channel registry
+        if complaint.source_ref:
             try:
-                token = os.getenv("TELEGRAM_BOT_TOKEN")
-                if token:
-                    # Generate AI response draft first if not generated
-                    ai_draft = complaint.ai_draft
-                    if not ai_draft:
-                        prompt = f"""You are a bank customer relations officer at Union Bank of India.
+                from services.channels import send_triage_update_sync
+                if not complaint.ai_draft:
+                    prompt = f"""You are a bank customer relations officer at Union Bank of India.
 Generate a professional, personalized response to this complaint:
 "{complaint.raw_text}"
 Tone constraints:
@@ -123,33 +118,18 @@ Tone constraints:
 - Keep the response professional, clear, and reassuring.
 - Address the core customer intent.
 - Do not include any markdown styling or greeting system text. Just return the raw response message."""
-                        completion = groq_chat_completion(
-                            messages=[{"role": "user", "content": prompt}],
-                            model="llama-3.1-8b-instant",
-                            max_tokens=250
-                        )
-                        ai_draft = completion.choices[0].message.content.strip()
-                        complaint.ai_draft = ai_draft
-                        db.commit()
-                    
-                    # Format message
-                    tier_hours = {"REGULATORY": 5, "HIGH": 24, "MEDIUM": 48, "NORMAL": 72}
-                    sla_hours = tier_hours.get(complaint.sla_tier, 72)
-                    msg = f"🎫 *Ticket Triage Assessment ready!*\n\n" \
-                          f"*Ticket ID:* `{complaint.id}`\n" \
-                          f"*Category:* {complaint.complaint_type or 'General'}\n" \
-                          f"*SLA Deadline:* {sla_hours} hours\n" \
-                          f"*Severity Level:* {complaint.severity_score:.2f}\n\n" \
-                          f"🤖 *AI Assistant's Response Draft:*\n{ai_draft}"
-                    
-                    url = f"https://api.telegram.org/bot{token}/sendMessage"
-                    requests.post(url, json={
-                        "chat_id": complaint.source_ref,
-                        "text": msg,
-                        "parse_mode": "Markdown"
-                    })
+                    completion = groq_chat_completion(
+                        messages=[{"role": "user", "content": prompt}],
+                        model="llama-3.1-8b-instant",
+                        max_tokens=250
+                    )
+                    ai_draft = completion.choices[0].message.content.strip()
+                    complaint.ai_draft = ai_draft
+                    db.commit()
+
+                send_triage_update_sync(complaint, complaint.ai_draft)
             except Exception as tg_err:
-                logger.warning(f"Failed to send pipeline completion update to Telegram: {tg_err}")
+                logger.warning(f"Failed to send pipeline completion update via channel registry: {tg_err}")
 
         if complaint.sla_tier:
             try:

@@ -8,6 +8,46 @@ from pydantic import BaseModel
 load_dotenv()
 
 
+class EmailSettings(BaseModel):
+    sendgrid_api_key: str = ""
+    from_address: str = "support@unionbankofindia.com"
+    inbound_webhook_key: str = ""
+    enabled: bool = False
+
+    def is_configured(self) -> bool:
+        return bool(self.sendgrid_api_key and self.from_address)
+
+
+class TwitterSettings(BaseModel):
+    username: str = ""
+    password: str = ""
+    email: str = ""
+    monitor_mentions: bool = True
+
+    def is_configured(self) -> bool:
+        return bool(self.username and self.password)
+
+
+class InstagramSettings(BaseModel):
+    username: str = ""
+    password: str = ""
+    session_file: str = "instagram_session.json"
+    verification_code_handler: str = "console"
+
+    def is_configured(self) -> bool:
+        return bool(self.username and self.password)
+
+
+class WhatsAppSettings(BaseModel):
+    openwa_base_url: str = "http://localhost:8081"
+    openwa_api_key: str = ""
+    webhook_url: str = ""
+    session_data_path: str = "whatsapp_session.json"
+
+    def is_configured(self) -> bool:
+        return bool(self.openwa_base_url)
+
+
 class Settings(BaseModel):
     database_url: str
     postgres_sslmode: str = "require"
@@ -20,6 +60,10 @@ class Settings(BaseModel):
     sarvam_access_token: Optional[str] = None
     telegram_bot_token: Optional[str] = None
     api_host: str = "http://localhost:8000"
+    email: EmailSettings = EmailSettings()
+    twitter: TwitterSettings = TwitterSettings()
+    instagram: InstagramSettings = InstagramSettings()
+    whatsapp: WhatsAppSettings = WhatsAppSettings()
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -43,6 +87,30 @@ class Settings(BaseModel):
             sarvam_access_token=os.getenv("SARVAM_ACCESS_TOKEN"),
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
             api_host=os.getenv("API_HOST", "http://localhost:8000"),
+            email=EmailSettings(
+                sendgrid_api_key=os.getenv("SENDGRID_API_KEY", ""),
+                from_address=os.getenv("EMAIL_FROM_ADDRESS", "support@unionbankofindia.com"),
+                inbound_webhook_key=os.getenv("SENDGRID_INBOUND_WEBHOOK_KEY", ""),
+                enabled=bool(os.getenv("SENDGRID_API_KEY")),
+            ),
+            twitter=TwitterSettings(
+                username=os.getenv("TWITTER_USERNAME", ""),
+                password=os.getenv("TWITTER_PASSWORD", ""),
+                email=os.getenv("TWITTER_EMAIL", ""),
+                monitor_mentions=os.getenv("TWITTER_MONITOR_MENTIONS", "true").lower() != "false",
+            ),
+            instagram=InstagramSettings(
+                username=os.getenv("INSTAGRAM_USERNAME", ""),
+                password=os.getenv("INSTAGRAM_PASSWORD", ""),
+                session_file=os.getenv("INSTAGRAM_SESSION_FILE", "instagram_session.json"),
+                verification_code_handler=os.getenv("INSTAGRAM_VERIFICATION_HANDLER", "console"),
+            ),
+            whatsapp=WhatsAppSettings(
+                openwa_base_url=os.getenv("OPENWA_BASE_URL", "http://localhost:8081"),
+                openwa_api_key=os.getenv("OPENWA_API_KEY", ""),
+                webhook_url=os.getenv("OPENWA_WEBHOOK_URL", ""),
+                session_data_path=os.getenv("OPENWA_SESSION_DATA_PATH", "whatsapp_session.json"),
+            ),
         )
 
 

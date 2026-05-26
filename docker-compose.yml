@@ -72,6 +72,20 @@ services:
     networks:
       - uccd_net
 
+  openwa:
+    image: openwa/openwa:latest
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./openwa-data:/app/data
+    environment:
+      - API_KEY=${OPENWA_API_KEY:-uccd_whatsapp_key}
+    restart: unless-stopped
+    networks:
+      - uccd_net
+    profiles:
+      - whatsapp
+
 volumes:
   redis_data:
 
