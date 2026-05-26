@@ -6,6 +6,7 @@ import type { Complaint } from '../types/complaint'
 interface DisplayDraft {
   id: string
   complaintId: string
+  customer: string
   summary: string
   channel: string
   tone: string
@@ -15,46 +16,6 @@ interface DisplayDraft {
   preview: string
   variables: string[]
   checks: { noSensitiveInfo: boolean; toneAppropriate: boolean; policyCompliant: boolean }
-}
-
-const channelColors: Record<string, { bg: string; text: string }> = {
-  Email: { bg: '#EEF2FF', text: '#4F46E5' },
-  WhatsApp: { bg: '#DCFCE7', text: '#16A34A' },
-  SMS: { bg: '#FEF3C7', text: '#A16207' },
-  Chat: { bg: '#DCFCE7', text: '#16A34A' },
-  App: { bg: '#EEF2FF', text: '#4F46E5' },
-  Telephone: { bg: '#FEF3C7', text: '#92400E' },
-  Social: { bg: '#EEF2FF', text: '#4F46E5' },
-  Default: { bg: '#F3F4F6', text: '#6B7280' },
-}
-
-const statusColors: Record<string, { bg: string; text: string }> = {
-  Draft: { bg: '#FEF3C7', text: '#92400E' },
-  Reviewed: { bg: '#EEF2FF', text: '#4F46E5' },
-  Sent: { bg: '#DCFCE7', text: '#16A34A' },
-  Open: { bg: '#FEF3C7', text: '#92400E' },
-  'In Progress': { bg: '#EEF2FF', text: '#4F46E5' },
-  Escalated: { bg: '#FEE2E2', text: '#DC2626' },
-  Resolved: { bg: '#DCFCE7', text: '#16A34A' },
-  Queued: { bg: '#F3F4F6', text: '#6B7280' },
-  Closed: { bg: '#DCFCE7', text: '#16A34A' },
-}
-
-function ConfidenceBar({ pct }: { pct: number }) {
-  const color = pct >= 90 ? '#16A34A' : pct >= 80 ? '#F59E0B' : '#DC2626'
-  const label = pct >= 90 ? 'High' : pct >= 80 ? 'Medium' : 'Low'
-  return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-        <span style={{ fontSize: 14, fontWeight: 700, color }}>{pct}</span>
-        <span style={{ fontSize: 10, color }}>%</span>
-      </div>
-      <div style={{ height: 5, borderRadius: 3, background: '#F3F4F6', overflow: 'hidden', marginTop: 2 }}>
-        <div style={{ height: '100%', width: `${pct}%`, borderRadius: 3, background: color }} />
-      </div>
-      <div style={{ fontSize: 9, fontWeight: 600, color, marginTop: 1 }}>{label} confidence</div>
-    </div>
-  )
 }
 
 const filterOptions = ['All', 'Email', 'WhatsApp', 'SMS', 'Formal', 'Apologetic', 'Draft', 'Reviewed', 'Sent', 'High Confidence']
@@ -67,18 +28,18 @@ export function AiDrafts() {
   const [sort, setSort] = useState('Newest')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectedDraft, setSelectedDraft] = useState<DisplayDraft | null>(null)
-  const [showConfidence, setShowConfidence] = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetchDrafts = () => {
     setLoading(true)
     setError(null)
-    api.listComplaints({ has_draft: true, limit: 50 })
+    api.listComplaints({ limit: 100 })
       .then((res) => {
         const mapped: DisplayDraft[] = res.complaints
           .filter((c: Complaint) => c.ai_draft)
           .map((c: Complaint, i: number) => ({
             id: `DFT-${1000 + i}`,
             complaintId: c.id,
+            customer: c.customer_name ?? c.customer_id,
             summary: c.complaint_type || c.raw_text.slice(0, 60),
             channel: c.channel || 'Email',
             tone: c.intent === 'complaint' ? 'Apologetic' : c.intent === 'urgent' ? 'Urgent' : 'Formal',
@@ -99,6 +60,10 @@ export function AiDrafts() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load drafts'))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    fetchDrafts()
   }, [])
 
   const toggle = (id: string) => setSelectedIds((prev) => {
@@ -106,6 +71,37 @@ export function AiDrafts() {
     if (next.has(id)) next.delete(id); else next.add(id)
     return next
   })
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+    alert('Draft copied to clipboard!')
+  }
+
+  const handleMarkSent = async (complaintId: string) => {
+    try {
+      await api.updateStatus(complaintId, 'resolved')
+      setDrafts(prev => prev.filter(d => d.complaintId !== complaintId))
+      if (selectedDraft?.complaintId === complaintId) {
+        setSelectedDraft(null)
+      }
+      alert('Complaint marked as resolved/sent')
+    } catch {
+      alert('Failed to update status')
+    }
+  }
+
+  const handleRegenerate = async (complaintId: string) => {
+    try {
+      const res = await api.getDraft(complaintId)
+      setDrafts(prev => prev.map(d => d.complaintId === complaintId ? { ...d, preview: res.draft } : d))
+      if (selectedDraft?.complaintId === complaintId) {
+        setSelectedDraft(prev => prev ? { ...prev, preview: res.draft } : null)
+      }
+      alert('Draft regenerated!')
+    } catch {
+      alert('Failed to regenerate draft')
+    }
+  }
 
   const filteredDrafts = drafts.filter((d) => {
     if (activeFilter === 'All') return true
@@ -143,10 +139,11 @@ export function AiDrafts() {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <AppSidebar activeItem="AI Drafts" />
-      <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: '#F5F6FA' }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', background: '#F5F6FA' }}>
         <header style={{
           height: 56, background: 'white', borderBottom: '1px solid #E5E7EB',
           display: 'flex', alignItems: 'center', padding: '0 28px', gap: 16,
+          flexShrink: 0,
         }}>
           <h1 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>AI Response Drafts</h1>
           <div style={{ flex: 1, minWidth: 0, maxWidth: 460, height: 36, borderRadius: 20, background: '#F3F4F6', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 8 }}>
@@ -161,7 +158,7 @@ export function AiDrafts() {
         <div style={{
           background: 'white', borderBottom: '1px solid #E5E7EB',
           padding: '10px 28px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-          position: 'sticky', top: 0, zIndex: 10,
+          flexShrink: 0,
         }}>
           <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.3px' }}>Filter</span>
           {filterOptions.map((f) => (
@@ -183,7 +180,7 @@ export function AiDrafts() {
           <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, color: '#6B7280' }}>{filteredDrafts.length} drafts</span>
         </div>
 
-        <div style={{ padding: '24px 28px' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1.7fr 1fr', gap: 24, alignItems: 'start' }}>
             <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 2px 10px rgba(0,0,0,.03)', overflow: 'hidden', minWidth: 0 }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid #F0F0F0' }}>
@@ -192,61 +189,57 @@ export function AiDrafts() {
                   AI-generated response drafts ready for review. Created automatically when complaints enter the pipeline.
                 </div>
               </div>
-              <div style={{
-                display: 'grid', gridTemplateColumns: '40px 90px minmax(0, 1fr) 80px 90px 90px 90px 110px',
-                gap: 8, alignItems: 'center', padding: '10px 24px', background: '#FAFBFC', borderBottom: '1px solid #F0F0F0',
-                fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px',
-              }}>
-                <div></div>
-                <div>Draft ID</div>
-                <div>Complaint</div>
-                <div>Channel</div>
-                <div>Tone</div>
-                <div>Confidence</div>
-                <div>Status</div>
-                <div>Actions</div>
-              </div>
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{
+                  display: 'grid', gridTemplateColumns: '40px 90px 120px minmax(0, 1fr) 180px 240px',
+                  gap: 8, alignItems: 'center', padding: '10px 24px', background: '#FAFBFC', borderBottom: '1px solid #F0F0F0',
+                  fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px',
+                  minWidth: 800,
+                }}>
+                  <div></div>
+                  <div>Complaint ID</div>
+                  <div>Customer</div>
+                  <div>Summary</div>
+                  <div>Draft Text</div>
+                  <div>Actions</div>
+                </div>
 
-              {filteredDrafts.map((d) => {
-                const ch = channelColors[d.channel] ?? channelColors.Default
-                const st = statusColors[d.status] ?? statusColors.Draft
-                return (
-                  <div key={d.id}>
-                    <div onClick={() => setSelectedDraft(d)}
-                      style={{
-                        display: 'grid', gridTemplateColumns: '40px 90px minmax(0, 1fr) 80px 90px 90px 90px 110px',
-                        gap: 8, alignItems: 'center', padding: '12px 24px', borderBottom: '1px solid #F5F6FA',
-                        background: selectedIds.has(d.id) ? '#EFF6FF' : 'white',
-                        cursor: 'pointer', transition: 'background .1s',
-                      }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <input type="checkbox" checked={selectedIds.has(d.id)} onChange={() => toggle(d.id)}
-                          style={{ width: 14, height: 14, cursor: 'pointer' }} onClick={(ev) => ev.stopPropagation()} />
-                      </div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace' }}>{d.id}</span>
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace' }}>{d.complaintId}</div>
-                        <div style={{ fontSize: 11, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.summary}</div>
-                      </div>
-                      <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, color: ch.text, background: ch.bg, whiteSpace: 'nowrap', width: 'fit-content' }}>{d.channel}</span>
-                      <span style={{ fontSize: 11, color: '#6B7280' }}>{d.tone}</span>
-                      <div onClick={(ev) => { ev.stopPropagation(); setShowConfidence(showConfidence === d.id ? null : d.id) }} style={{ cursor: 'pointer' }}>
-                        <ConfidenceBar pct={d.confidence} />
-                      </div>
-                      <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, color: st.text, background: st.bg, whiteSpace: 'nowrap', width: 'fit-content' }}>{d.status}</span>
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        {[
-                          { label: 'View', color: '#3B82F6', bg: '#EFF6FF' },
-                          { label: 'Send', color: '#16A34A', bg: '#DCFCE7' },
-                        ].map((btn) => (
-                          <button key={btn.label} type="button" onClick={(ev) => ev.stopPropagation()}
-                            style={{ padding: '4px 10px', borderRadius: 4, fontSize: 10, fontWeight: 600, color: btn.color, background: btn.bg ?? 'transparent', border: 'none', cursor: 'pointer', whiteSpace: 'nowrap' }}>{btn.label}</button>
-                        ))}
+                {filteredDrafts.map((d) => {
+                  return (
+                    <div key={d.id}>
+                      <div onClick={() => setSelectedDraft(d)}
+                        style={{
+                          display: 'grid', gridTemplateColumns: '40px 90px 120px minmax(0, 1fr) 180px 240px',
+                          gap: 8, alignItems: 'center', padding: '12px 24px', borderBottom: '1px solid #F5F6FA',
+                          background: selectedDraft?.id === d.id ? '#EFF6FF' : 'white',
+                          cursor: 'pointer', transition: 'background .1s',
+                          minWidth: 800,
+                        }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <input type="checkbox" checked={selectedIds.has(d.id)} onChange={() => toggle(d.id)}
+                            style={{ width: 14, height: 14, cursor: 'pointer' }} onClick={(ev) => ev.stopPropagation()} />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace' }}>{d.complaintId.slice(0, 8)}</span>
+                        <span style={{
+                          fontSize: 12, color: '#1F2937', fontWeight: 600,
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                          display: 'block'
+                        }} title={d.customer}>{d.customer}</span>
+                        <span style={{ fontSize: 11, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.summary}</span>
+                        <span style={{ fontSize: 11, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.preview}</span>
+                        <div style={{ display: 'flex', gap: 4 }} onClick={(ev) => ev.stopPropagation()}>
+                          <button type="button" onClick={() => handleCopy(d.preview)}
+                            style={{ padding: '4px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, color: '#3B82F6', background: '#EFF6FF', border: 'none', cursor: 'pointer' }}>Copy Draft</button>
+                          <button type="button" onClick={() => handleMarkSent(d.complaintId)}
+                            style={{ padding: '4px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, color: '#16A34A', background: '#DCFCE7', border: 'none', cursor: 'pointer' }}>Mark Sent</button>
+                          <button type="button" onClick={() => handleRegenerate(d.complaintId)}
+                            style={{ padding: '4px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600, color: '#EA580C', background: '#FFF7ED', border: 'none', cursor: 'pointer' }}>Regenerate</button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
 
             {selectedDraft && (
@@ -272,8 +265,10 @@ export function AiDrafts() {
                   <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 12, padding: 16 }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>Actions</div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button type="button" style={{ padding: '6px 16px', borderRadius: 6, background: '#3B82F6', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Send</button>
-                      <button type="button" style={{ padding: '6px 16px', borderRadius: 6, background: '#F3F4F6', color: '#6B7280', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Regenerate</button>
+                      <button type="button" onClick={() => handleMarkSent(selectedDraft.complaintId)}
+                        style={{ padding: '6px 16px', borderRadius: 6, background: '#3B82F6', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Mark Sent</button>
+                      <button type="button" onClick={() => handleRegenerate(selectedDraft.complaintId)}
+                        style={{ padding: '6px 16px', borderRadius: 6, background: '#F3F4F6', color: '#6B7280', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Regenerate</button>
                     </div>
                   </div>
                 </div>

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { AppSidebar } from '../layout/AppSidebar'
 import { api } from '../api/client'
 import type { Complaint } from '../types/complaint'
+import { useAuth } from '../auth/AuthContext'
 
 const severityColors: Record<string, { bg: string; text: string }> = {
   Critical: { bg: '#FEE2E2', text: '#DC2626' },
@@ -10,21 +12,6 @@ const severityColors: Record<string, { bg: string; text: string }> = {
   Low: { bg: '#DCFCE7', text: '#16A34A' },
 }
 
-const sentimentEmoji: Record<string, string> = {
-  'Very negative': '🔴',
-  Angry: '🔴',
-  Frustrated: '🔴',
-  Furious: '🔴',
-  Negative: '🟠',
-  Anxious: '🟠',
-  Disappointed: '🟠',
-  Worried: '🟠',
-  Neutral: '🟡',
-  Calm: '🟡',
-  Positive: '🟢',
-  Happy: '🟢',
-  Satisfied: '🟢',
-}
 
 const statusColors: Record<string, { bg: string; text: string }> = {
   Open: { bg: '#EFF6FF', text: '#3B82F6' },
@@ -145,20 +132,22 @@ function mapComplaint(c: Complaint): MappedComplaint {
   }
 }
 
-function TopBar({ count }: { count: number }) {
+function TopBar({ count, searchVal, onSearchChange, sidebarActiveItem, role }: { count: number; searchVal: string; onSearchChange: (v: string) => void; sidebarActiveItem?: string; role: string }) {
   return (
     <header style={{
       height: 56, background: 'white', borderBottom: '1px solid #E5E7EB',
       display: 'flex', alignItems: 'center', padding: '0 24px', gap: 16,
     }}>
       <h1 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
-        All Complaints
+        {sidebarActiveItem === 'Search' ? 'Search Complaints' : (role === 'AGENT' ? 'My Queue' : 'All Complaints')}
       </h1>
       <div style={{ flex: 1, minWidth: 0, maxWidth: 440, height: 36, borderRadius: 20, background: '#F3F4F6', display: 'flex', alignItems: 'center', padding: '0 14px', gap: 8 }}>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.3-4.3" />
         </svg>
         <input type="text" placeholder="Search ID, customer, issue, product…"
+          value={searchVal}
+          onChange={(e) => onSearchChange(e.target.value)}
           style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 13, color: '#374151' }}
         />
       </div>
@@ -176,14 +165,12 @@ function TopBar({ count }: { count: number }) {
 }
 
 function FilterBar({
-  filters, setFilter, sortBy, setSortBy, viewMode, setViewMode, selectedCount, onBulkAssign, onBulkEscalate, onBulkResolve, onBulkExport,
+  filters, setFilter, sortBy, setSortBy, selectedCount, onBulkAssign, onBulkEscalate, onBulkResolve, onBulkExport,
 }: {
   filters: Record<string, string>
   setFilter: (key: string, value: string) => void
   sortBy: string
   setSortBy: (s: string) => void
-  viewMode: string
-  setViewMode: (v: string) => void
   selectedCount: number
   onBulkAssign: () => void
   onBulkEscalate: () => void
@@ -194,7 +181,7 @@ function FilterBar({
     { key: 'status', label: 'Status', options: ['All', 'Open', 'In Progress', 'Escalated', 'Resolved'] },
     { key: 'severity', label: 'Severity', options: ['All', 'Critical', 'High', 'Medium', 'Low'] },
     { key: 'channel', label: 'Channel', options: ['All', 'WhatsApp', 'Email', 'App', 'IVR Call', 'Branch'] },
-    { key: 'product', label: 'Product', options: ['All', 'UPI', 'NetBanking', 'Credit Card', 'Loan', 'Fixed Deposit'] },
+    { key: 'product', label: 'Type', options: ['All', 'fraud', 'billing', 'kyc', 'loans', 'cards', 'service', 'technical'] },
   ]
 
   const sortOptions = ['SLA Deadline', 'Newest', 'Severity', 'Customer Score']
@@ -231,22 +218,6 @@ function FilterBar({
             style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #E5E7EB', fontSize: 12, fontWeight: 500, color: '#374151', background: '#F9FAFB', cursor: 'pointer', outline: 'none' }}>
             {sortOptions.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
-        </div>
-
-        <div style={{ display: 'flex', border: '1px solid #E5E7EB', borderRadius: 6, overflow: 'hidden' }}>
-          {['table', 'kanban', 'timeline'].map((m) => (
-            <button key={m} type="button" onClick={() => setViewMode(m)}
-              style={{
-                padding: '4px 10px', fontSize: 11, fontWeight: 500,
-                background: viewMode === m ? '#3B82F6' : 'white',
-                color: viewMode === m ? 'white' : '#6B7280',
-                border: 'none', cursor: 'pointer',
-                borderRight: m !== 'timeline' ? '1px solid #E5E7EB' : 'none',
-              }}
-            >
-              {m.charAt(0).toUpperCase() + m.slice(1)}
-            </button>
-          ))}
         </div>
 
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
@@ -388,10 +359,14 @@ function Drawer({ row, onClose }: { row: MappedComplaint; onClose: () => void })
   )
 }
 
-export function AllComplaints() {
+export function AllComplaints({ defaultSearch = '', sidebarActiveItem }: { defaultSearch?: string; sidebarActiveItem?: string }) {
+  const [searchParams] = useSearchParams()
+  const { user } = useAuth()
+  const filterAssignedToMe = searchParams.get('assigned_to') === 'me'
+
   const [filters, setFilters] = useState<Record<string, string>>({ status: 'All', severity: 'All', channel: 'All', product: 'All' })
+  const [searchQuery, setSearchQuery] = useState(defaultSearch)
   const [sortBy, setSortBy] = useState('SLA Deadline')
-  const [viewMode, setViewMode] = useState('table')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [drawerRow, setDrawerRow] = useState<MappedComplaint | null>(null)
@@ -439,11 +414,27 @@ export function AllComplaints() {
     }
   }
 
+  const matchMyAssignment = (r: MappedComplaint) => {
+    return r.assignedTo.toLowerCase() === user?.email?.toLowerCase() ||
+           r.assignedTo.toLowerCase() === user?.name?.toLowerCase() ||
+           (user?.email && r.assignedTo.toLowerCase().includes(user.email.split('@')[0].toLowerCase()))
+  }
+
   const filtered = complaints.filter((r) => {
+    if (filterAssignedToMe && !matchMyAssignment(r)) return false
     if (filters.status !== 'All' && r.status !== filters.status) return false
     if (filters.severity !== 'All' && r.severity !== filters.severity) return false
-    if (filters.channel !== 'All' && r.channel !== filters.channel) return false
+    if (filters.channel !== 'All' && r.channel.toLowerCase() !== filters.channel.toLowerCase()) return false
     if (filters.product !== 'All' && r.product !== filters.product) return false
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase()
+      const match = r.id.toLowerCase().includes(q) ||
+                    r.customer.toLowerCase().includes(q) ||
+                    r.rawIssue.toLowerCase().includes(q) ||
+                    r.product.toLowerCase().includes(q) ||
+                    r.ticketId.toLowerCase().includes(q)
+      if (!match) return false
+    }
     return true
   })
 
@@ -456,16 +447,17 @@ export function AllComplaints() {
     return 0
   })
 
+  const activeItem = sidebarActiveItem ?? (user?.role === 'AGENT' ? 'My Queue' : 'All Complaints')
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      <AppSidebar activeItem="All Complaints" />
+      <AppSidebar activeItem={activeItem} />
 
       <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: '#F5F6FA' }}>
-        <TopBar count={filtered.length} />
+        <TopBar count={filtered.length} searchVal={searchQuery} onSearchChange={setSearchQuery} sidebarActiveItem={sidebarActiveItem} role={user?.role ?? 'AGENT'} />
         <FilterBar
           filters={filters} setFilter={setFilter}
           sortBy={sortBy} setSortBy={setSortBy}
-          viewMode={viewMode} setViewMode={setViewMode}
           selectedCount={selectedIds.size}
           onBulkAssign={() => setSelectedIds(new Set())}
           onBulkEscalate={() => setSelectedIds(new Set())}
@@ -497,10 +489,10 @@ export function AllComplaints() {
         )}
 
         {!loading && !error && (
-          <div style={{ padding: '0 24px', paddingBottom: 24 }}>
+          <div style={{ padding: '0 24px 24px 24px' }}>
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '36px 140px 130px minmax(0, 1fr) 90px 80px 60px 100px 80px 90px 110px',
+              gridTemplateColumns: '36px 160px 140px minmax(0,1fr) 100px 70px 110px 90px 120px',
               gap: 12, alignItems: 'center',
               padding: '12px 16px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB',
               borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB',
@@ -510,7 +502,7 @@ export function AllComplaints() {
                 <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll}
                   style={{ width: 15, height: 15, cursor: 'pointer' }} />
               </div>
-              {['ID · Severity', 'Customer', 'Issue Summary', 'Product', 'Channel', 'Sentiment', 'Assigned', 'SLA', 'Status', 'Actions'].map((h) => (
+              {['ID · Severity', 'Customer', 'Issue Summary', 'Product', 'Channel', 'Assigned', 'SLA', 'Status & Actions'].map((h) => (
                 <div key={h} style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap' }}>{h}</div>
               ))}
             </div>
@@ -527,7 +519,7 @@ export function AllComplaints() {
                     <div
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '36px 140px 130px minmax(0, 1fr) 90px 80px 60px 100px 80px 90px 110px',
+                        gridTemplateColumns: '36px 160px 140px minmax(0,1fr) 100px 70px 110px 90px 120px',
                         gap: 12, alignItems: 'center',
                         padding: '11px 16px', borderBottom: '1px solid #F3F4F6',
                         background: isSelected ? '#EFF6FF' : 'white',
@@ -566,8 +558,6 @@ export function AllComplaints() {
                         {channelIcons[row.channel] ?? ''} {row.channel}
                       </span>
 
-                      <span style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{sentimentEmoji[row.sentiment] ?? sentimentEmoji.Neutral}</span>
-
                       <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{
                           width: 22, height: 22, borderRadius: '50%', background: '#EFF6FF', color: '#3B82F6',
@@ -584,27 +574,27 @@ export function AllComplaints() {
                         <div style={{ fontSize: 9, fontWeight: 700, color: row.slaColor, marginTop: 2 }}>{row.slaLabel}</div>
                       </div>
 
-                      <span style={{
-                        padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600,
-                        color: st.text, background: st.bg, whiteSpace: 'nowrap',
-                        display: 'inline-block', width: 'fit-content',
-                      }}>{row.status}</span>
-
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        {[
-                          { label: 'View', onClick: () => setDrawerRow(row) },
-                          { label: 'Assign', onClick: () => {} },
-                          { label: 'Reply', onClick: () => setDrawerRow(row) },
-                        ].map((action) => (
-                          <button key={action.label} type="button" onClick={action.onClick}
-                            style={{
-                              padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
-                              color: action.label === 'View' ? '#3B82F6' : '#6B7280',
-                              background: action.label === 'View' ? '#EFF6FF' : 'transparent',
-                              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                            }}
-                          >{action.label}</button>
-                        ))}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600,
+                          color: st.text, background: st.bg, whiteSpace: 'nowrap',
+                          display: 'inline-block', width: 'fit-content',
+                        }}>{row.status}</span>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {[
+                            { label: 'View', onClick: () => setDrawerRow(row) },
+                            { label: 'Reply', onClick: () => setDrawerRow(row) },
+                          ].map((action) => (
+                            <button key={action.label} type="button" onClick={action.onClick}
+                              style={{
+                                padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                                color: action.label === 'View' ? '#3B82F6' : '#6B7280',
+                                background: action.label === 'View' ? '#EFF6FF' : 'transparent',
+                                border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                              }}
+                            >{action.label}</button>
+                          ))}
+                        </div>
                       </div>
                     </div>
 

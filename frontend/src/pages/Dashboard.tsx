@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import type { Complaint, DashboardKpis, CategoryBreakdown, ChannelDistribution } from '../types/complaint'
+import { AppSidebar } from '../layout/AppSidebar'
 
 const severityColors: Record<string, { bg: string; text: string }> = {
   HIGH: { bg: '#FEE2E2', text: '#DC2626' },
@@ -56,15 +57,6 @@ function getTimeAgo(dateStr: string) {
 }
 
 function AgentDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Complaint[] }) {
-  const handleAssignToMe = async (id: string) => {
-    try {
-      await api.assign(id)
-      window.location.reload()
-    } catch {
-      alert('Failed to assign')
-    }
-  }
-
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16 }}>
@@ -78,7 +70,7 @@ function AgentDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Complai
         <div style={{ background: 'white', borderRadius: 10, border: '1px solid #F0F0F0', boxShadow: '0 1px 3px rgba(0,0,0,.04)', overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>My Queue</h3>
-            <a href="/app/classic/queue" style={{ fontSize: 11, fontWeight: 600, color: '#3B82F6', textDecoration: 'none' }}>View All →</a>
+            <a href="/app/complaints?assigned_to=me" style={{ fontSize: 11, fontWeight: 600, color: '#3B82F6', textDecoration: 'none' }}>View All →</a>
           </div>
           {recent.length === 0 ? (
             <div style={{ padding: 40, textAlign: 'center', color: '#9CA3AF', fontSize: 13 }}>No complaints yet.</div>
@@ -93,10 +85,13 @@ function AgentDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Complai
                   <span style={{ fontSize: 10, color: '#9CA3AF' }}>{getTimeAgo(comp.created_at)}</span>
                   <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, color: statusColors[comp.status]?.text ?? '#6B7280', background: statusColors[comp.status]?.bg ?? '#F3F4F6' }}>{comp.status.replace('_', ' ')}</span>
                   {!comp.assigned_to && (
-                    <button type="button" onClick={() => handleAssignToMe(String(comp.id))}
-                      style={{ padding: '3px 10px', borderRadius: 6, background: '#3B82F6', color: 'white', border: 'none', fontSize: 10, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                      Take
-                    </button>
+                    <span style={{
+                      padding: '2px 8px', borderRadius: 10, fontSize: 10,
+                      fontWeight: 600, color: '#9CA3AF', background: '#F3F4F6',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      Auto-assigning...
+                    </span>
                   )}
                 </div>
               )
@@ -107,7 +102,7 @@ function AgentDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Complai
         <div style={{ background: 'white', borderRadius: 10, border: '1px solid #F0F0F0', boxShadow: '0 1px 3px rgba(0,0,0,.04)', padding: 20, position: 'sticky', top: 20 }}>
           <h3 style={{ margin: '0 0 16px 0', fontSize: 14, fontWeight: 700, color: '#111827' }}>Quick Actions</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <a href="/app/classic/queue" style={{ display: 'block', padding: 12, borderRadius: 8, background: '#EEF2FF', border: '1px solid #DBEAFE', textDecoration: 'none', transition: 'all .15s' }}>
+            <a href="/app/complaints?assigned_to=me" style={{ display: 'block', padding: 12, borderRadius: 8, background: '#EEF2FF', border: '1px solid #DBEAFE', textDecoration: 'none', transition: 'all .15s' }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: '#3B82F6', marginBottom: 2 }}>View My Queue</div>
               <div style={{ fontSize: 11, color: '#6B7280' }}>See all {kpis.open} open complaints assigned to you</div>
             </a>
@@ -215,7 +210,7 @@ function SupervisorDashboard({ kpis, categories, channels, recent }: { kpis: Das
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>{channelIcons[comp.channel.toLowerCase()] ?? ''} {comp.channel}</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>{getTimeAgo(comp.created_at)}</span>
                 <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, color: statusColors[comp.status]?.text ?? '#6B7280', background: statusColors[comp.status]?.bg ?? '#F3F4F6' }}>{comp.status.replace('_', ' ')}</span>
-                {comp.status === 'escalated' && (
+                {(comp.status === 'escalated' || comp.status === 'in_progress') && (
                   <button type="button" onClick={() => handleQuickResolve(String(comp.id))}
                     style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: 'white', border: 'none', fontSize: 10, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     Resolve
@@ -330,49 +325,103 @@ export function Dashboard() {
     load()
   }, [])
 
-  if (loading) return <LoadingSkeleton />
-  if (error) return <div style={{ padding: 40, textAlign: 'center', color: '#DC2626', fontSize: 14 }}>{error}</div>
-  if (!kpis) return <div style={{ padding: 40, textAlign: 'center', color: '#9CA3AF' }}>No data available.</div>
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <AppSidebar activeItem="Dashboard" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F6FA' }}>
+          <LoadingSkeleton />
+        </div>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <AppSidebar activeItem="Dashboard" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F6FA', color: '#DC2626', fontSize: 14 }}>
+          {error}
+        </div>
+      </div>
+    )
+  }
+  if (!kpis) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <AppSidebar activeItem="Dashboard" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F6FA', color: '#9CA3AF' }}>
+          No data available.
+        </div>
+      </div>
+    )
+  }
 
   const role = user?.role ?? 'AGENT'
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F5F6FA' }}>
-      <header style={{ height: 56, background: 'white', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', padding: '0 24px', gap: 16 }}>
-        <h1 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>
-          {role === 'AGENT' ? 'Agent Dashboard' : role === 'SUPERVISOR' ? 'Supervisor Command Center' : 'Compliance Control Center'}
-        </h1>
-        <span style={{ borderRadius: 10, padding: '2px 12px', fontSize: 10, fontWeight: 700, background: role === 'SUPERVISOR' ? '#EEF2FF' : role === 'COMPLIANCE' ? '#FEE2E2' : '#DCFCE7', color: role === 'SUPERVISOR' ? '#4F46E5' : role === 'COMPLIANCE' ? '#DC2626' : '#16A34A', textTransform: 'uppercase' }}>
-          {role}
-        </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          {role === 'SUPERVISOR' && (
-            <>
-              <a href="/app/trends" style={{ padding: '6px 14px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Trends</a>
-              <a href="/app/escalations" style={{ padding: '6px 14px', borderRadius: 6, background: '#FEF2F2', color: '#DC2626', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Escalations</a>
-              <a href="/app/classic/supervisor" style={{ padding: '6px 14px', borderRadius: 6, background: '#3B82F6', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Command Center</a>
-            </>
-          )}
-          {role === 'COMPLIANCE' && (
-            <>
-              <a href="/app/regulatory" style={{ padding: '6px 14px', borderRadius: 6, background: '#FEF2F2', color: '#DC2626', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Regulatory</a>
-              <a href="/app/root-cause" style={{ padding: '6px 14px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Root Cause</a>
-            </>
-          )}
-          {role === 'AGENT' && (
-            <>
-              <a href="/app/classic/queue" style={{ padding: '6px 14px', borderRadius: 6, background: '#3B82F6', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Open Queue</a>
-              <a href="/app/drafts" style={{ padding: '6px 14px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>AI Drafts</a>
-            </>
-          )}
-          <a href="/app/complaints" style={{ padding: '6px 14px', borderRadius: 6, background: '#F3F4F6', color: '#374151', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>All Complaints</a>
-        </div>
-      </header>
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      <AppSidebar activeItem="Dashboard" />
+      <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: '#F5F6FA' }}>
+        <header style={{ height: 56, background: 'white', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', padding: '0 24px', gap: 16 }}>
+          <h1 style={{ fontSize: 16, fontWeight: 700, color: '#111827', margin: 0 }}>
+            {role === 'AGENT' ? 'Agent Dashboard' : role === 'SUPERVISOR' ? 'Supervisor Command Center' : 'Compliance Control Center'}
+          </h1>
+          <span style={{ borderRadius: 10, padding: '2px 12px', fontSize: 10, fontWeight: 700, background: role === 'SUPERVISOR' ? '#EEF2FF' : role === 'COMPLIANCE' ? '#FEE2E2' : '#DCFCE7', color: role === 'SUPERVISOR' ? '#4F46E5' : role === 'COMPLIANCE' ? '#DC2626' : '#16A34A', textTransform: 'uppercase' }}>
+            {role}
+          </span>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            {role === 'SUPERVISOR' && (
+              <>
+                <a href="/app/trends"
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  style={{ padding: '6px 14px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Trends</a>
+                <a href="/app/escalations"
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  style={{ padding: '6px 14px', borderRadius: 6, background: '#FEF2F2', color: '#DC2626', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Escalations</a>
+                <a href="/app/dashboard"
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  style={{ padding: '6px 14px', borderRadius: 6, background: '#3B82F6', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Command Center</a>
+              </>
+            )}
+            {role === 'COMPLIANCE' && (
+              <>
+                <a href="/app/regulatory"
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  style={{ padding: '6px 14px', borderRadius: 6, background: '#FEF2F2', color: '#DC2626', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Regulatory</a>
+                <a href="/app/root-cause"
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  style={{ padding: '6px 14px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Root Cause</a>
+              </>
+            )}
+            {role === 'AGENT' && (
+              <>
+                <a href="/app/complaints?assigned_to=me"
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  style={{ padding: '6px 14px', borderRadius: 6, background: '#3B82F6', color: 'white', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>Open Queue</a>
+                <a href="/app/drafts"
+                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                  style={{ padding: '6px 14px', borderRadius: 6, background: '#EEF2FF', color: '#4F46E5', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>AI Drafts</a>
+              </>
+            )}
+            <a href="/app/complaints"
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              style={{ padding: '6px 14px', borderRadius: 6, background: '#F3F4F6', color: '#374151', border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', textDecoration: 'none' }}>All Complaints</a>
+          </div>
+        </header>
 
-      <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {role === 'AGENT' && <AgentDashboard kpis={kpis} recent={recent} />}
-        {role === 'SUPERVISOR' && categories && channels && <SupervisorDashboard kpis={kpis} categories={categories} channels={channels} recent={recent} />}
-        {role === 'COMPLIANCE' && <ComplianceDashboard kpis={kpis} recent={recent} />}
+        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {role === 'AGENT' && <AgentDashboard kpis={kpis} recent={recent} />}
+          {role === 'SUPERVISOR' && categories && channels && <SupervisorDashboard kpis={kpis} categories={categories} channels={channels} recent={recent} />}
+          {role === 'COMPLIANCE' && <ComplianceDashboard kpis={kpis} recent={recent} />}
+        </div>
       </div>
     </div>
   )

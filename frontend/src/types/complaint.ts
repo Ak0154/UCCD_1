@@ -79,6 +79,7 @@ export interface ComplaintFilters {
   search?: string
   page?: number
   limit?: number
+  customer_id?: string
 }
 
 export interface DashboardKpis {
