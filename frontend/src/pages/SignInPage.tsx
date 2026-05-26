@@ -89,16 +89,16 @@ export function SignInPage() {
     }
   }
 
-  return (
-    <div className="relative flex min-h-screen w-full bg-bg">
+return (
+    <div className="relative flex min-h-screen w-full bg-bg overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-accent/3 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3" />
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-accent/4 rounded-full blur-[100px] translate-y-1/2 -translate-x-1/4" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_rgba(201,164,76,0.04)_0%,_transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 flex w-full">
-        <div className="hidden flex-1 items-center justify-center bg-surface/30 border-r border-border lg:flex">
+      <div className="relative z-10 flex w-full min-h-screen">
+        <div className="hidden lg:flex flex-1 items-center justify-center bg-surface/30 border-r border-border overflow-hidden">
           <div className="max-w-md px-8 py-12 space-y-10">
             <div className="space-y-3">
               <div className="inline-flex items-center gap-2.5 rounded-full border border-accent/20 bg-accent/5 px-4 py-1.5">
@@ -152,7 +152,7 @@ export function SignInPage() {
           </div>
         </div>
 
-        <div className="flex flex-1 items-center justify-center px-6 py-8 sm:px-8">
+        <div className="flex flex-1 items-center justify-center px-6 py-8 sm:px-8 min-h-screen">
           <div className="w-full max-w-[440px]">
             <Link to="/landing" className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:brightness-110 transition mb-8 lg:hidden">
               <div className="flex items-center gap-1.5">
@@ -181,33 +181,36 @@ export function SignInPage() {
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-muted uppercase tracking-wider">Select Workspace</label>
                     <div className="grid grid-cols-3 gap-2">
-                      {rolesConfig.map(({ role, label, email: presetEmail, icon, description }) => (
-                        <button
-                          key={role}
-                          type="button"
-                          onClick={() => handleRoleSelect(role, presetEmail)}
-                          className={cn(
-                            'flex flex-col items-center gap-1.5 rounded-lg border p-3 transition-all duration-200 text-center',
-                            selectedRole === role
-                              ? 'border-accent bg-accent/10 shadow-[0_0_16px_rgba(201,164,76,0.12)]'
-                              : 'border-border bg-surface/40 hover:border-muted/50 hover:bg-surface/60',
-                          )}
-                          title={description}
-                        >
-                          <span className={cn(
-                            'transition-colors',
-                            selectedRole === role ? 'text-accent' : 'text-muted',
-                          )}>
-                            {icon}
-                          </span>
-                          <span className={cn(
-                            'text-xs font-semibold transition-colors',
-                            selectedRole === role ? 'text-accent' : 'text-text',
-                          )}>
-                            {label}
-                          </span>
-                        </button>
-                      ))}
+                      {rolesConfig.map(({ role, label, email: presetEmail, icon, description }) => {
+                        const isActive = selectedRole === role
+                        return (
+                          <button
+                            key={role}
+                            type="button"
+                            onClick={() => handleRoleSelect(role, presetEmail)}
+                            className={cn(
+                              'flex flex-col items-center gap-1.5 rounded-lg border p-3 transition-all duration-200 text-center',
+                              isActive
+                                ? 'border-accent bg-accent/10 shadow-[0_0_16px_rgba(201,164,76,0.12)]'
+                                : 'border-border bg-surface/40 hover:border-muted/50 hover:bg-surface/60',
+                            )}
+                            title={description}
+                          >
+                            <span className={cn(
+                              'transition-colors',
+                              isActive ? 'text-accent' : 'text-muted',
+                            )}>
+                              {icon}
+                            </span>
+                            <span className={cn(
+                              'text-xs font-semibold transition-colors',
+                              isActive ? 'text-accent' : 'text-text',
+                            )}>
+                              {label}
+                            </span>
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
 
@@ -243,7 +246,7 @@ export function SignInPage() {
                         >
                           {showPassword ? (
                             <svg className="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                             </svg>
                           ) : (
                             <svg className="h-4.5 w-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -9,13 +9,14 @@ load_dotenv()
 
 
 class EmailSettings(BaseModel):
-    sendgrid_api_key: str = ""
+    mailgun_api_key: str = ""
+    mailgun_domain: str = ""
     from_address: str = "support@unionbankofindia.com"
     inbound_webhook_key: str = ""
     enabled: bool = False
 
     def is_configured(self) -> bool:
-        return bool(self.sendgrid_api_key and self.from_address)
+        return bool(self.mailgun_api_key and self.mailgun_domain)
 
 
 class TwitterSettings(BaseModel):
@@ -88,10 +89,11 @@ class Settings(BaseModel):
             telegram_bot_token=os.getenv("TELEGRAM_BOT_TOKEN"),
             api_host=os.getenv("API_HOST", "http://localhost:8000"),
             email=EmailSettings(
-                sendgrid_api_key=os.getenv("SENDGRID_API_KEY", ""),
+                mailgun_api_key=os.getenv("MAILGUN_API_KEY", ""),
+                mailgun_domain=os.getenv("MAILGUN_DOMAIN", ""),
                 from_address=os.getenv("EMAIL_FROM_ADDRESS", "support@unionbankofindia.com"),
-                inbound_webhook_key=os.getenv("SENDGRID_INBOUND_WEBHOOK_KEY", ""),
-                enabled=bool(os.getenv("SENDGRID_API_KEY")),
+                inbound_webhook_key=os.getenv("MAILGUN_INBOUND_WEBHOOK_KEY", ""),
+                enabled=bool(os.getenv("MAILGUN_API_KEY") and os.getenv("MAILGUN_DOMAIN")),
             ),
             twitter=TwitterSettings(
                 username=os.getenv("TWITTER_USERNAME", ""),

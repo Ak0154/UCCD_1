@@ -51,6 +51,11 @@ export interface Complaint {
   escalation_reason?: string | null
   pre_escalate?: boolean
   resolution_notes?: string | null
+  customer_name?: string | null
+  customer_email?: string | null
+  customer_phone?: string | null
+  account_number?: string | null
+  awaiting_details?: boolean
 }
 
 export interface ComplaintListResponse {

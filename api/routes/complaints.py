@@ -311,3 +311,84 @@ def respond_and_resolve_complaint(
         "channel_sent": channel_sent
     }
 
+
+class UserDetailsUpdate(BaseModel):
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    account_number: Optional[str] = None
+
+
+class DetailsRequestResponse(BaseModel):
+    message: str
+    translated_message: Optional[str] = None
+
+
+@router.post("/{complaint_id}/request-details", response_model=DetailsRequestResponse)
+async def request_user_details(
+    complaint_id: str,
+    db: Session = Depends(get_db),
+):
+    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    complaint.awaiting_details = True
+    complaint.details_requested_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(complaint)
+
+    default_message = (
+        "Thank you for reaching out. To help us process your complaint faster, "
+        "could you please provide your full name, email address, phone number, and account number?"
+    )
+
+    try:
+        from services.translation_service import SarvamTranslationService, TranslationStage
+        svc = SarvamTranslationService()
+        target_lang = complaint.detected_language or complaint.language_code or "en-IN"
+        result = await svc.translate(
+            text=default_message,
+            stage=TranslationStage.PREVIEW,
+            target_lang=target_lang,
+        )
+        return {
+            "message": default_message,
+            "translated_message": result.get("translated_text"),
+        }
+    except Exception:
+        return {"message": default_message}
+
+
+@router.put("/{complaint_id}/details", response_model=ComplaintResponse)
+async def update_user_details(
+    complaint_id: str,
+    body: UserDetailsUpdate,
+    db: Session = Depends(get_db),
+):
+    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    if not complaint:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    if body.customer_name is not None:
+        complaint.customer_name = body.customer_name
+    if body.customer_email is not None:
+        complaint.customer_email = body.customer_email
+    if body.customer_phone is not None:
+        complaint.customer_phone = body.customer_phone
+    if body.account_number is not None:
+        complaint.account_number = body.account_number
+
+    complaint.awaiting_details = False
+
+    db.commit()
+    db.refresh(complaint)
+
+    broadcast_event({
+        "type": "complaint_details_updated",
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "complaint_id": str(complaint.id),
+    })
+
+    return complaint
+

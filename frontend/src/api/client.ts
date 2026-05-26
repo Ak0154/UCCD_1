@@ -158,6 +158,25 @@ export const api = {
   getTrends(window = 7) {
     return request<TrendsResponse>(`/api/v1/analytics/trends${toQuery({ window })}`)
   },
+
+  requestDetails(id: string) {
+    return request<{ message: string; translated_message?: string }>(
+      `/api/v1/complaints/${id}/request-details`,
+      { method: 'POST' },
+    )
+  },
+
+  updateUserDetails(id: string, details: {
+    customer_name?: string
+    customer_email?: string
+    customer_phone?: string
+    account_number?: string
+  }) {
+    return request<Complaint>(`/api/v1/complaints/${id}/details`, {
+      method: 'PUT',
+      body: JSON.stringify(details),
+    })
+  },
 }
 
 export { API_BASE_URL }

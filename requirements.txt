@@ -19,6 +19,6 @@ httpx
 pytest
 pytest-asyncio
 scikit-learn
-sendgrid
+requests
 tweety-ns
 instagrapi
