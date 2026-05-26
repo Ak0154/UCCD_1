@@ -16,7 +16,7 @@ export function AppShell() {
 
   function handleLogout() {
     logout()
-    navigate('/login', { replace: true })
+    navigate('/', { replace: true })
   }
 
   const isAgentDashboard = location.pathname === '/app/queue' || location.pathname === '/app/search'

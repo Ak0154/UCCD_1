@@ -79,7 +79,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (response.status === 401) {
     clearSession()
-    window.location.href = '/login'
+    window.location.href = '/'
     throw new ApiError(401, 'Session expired')
   }
 
