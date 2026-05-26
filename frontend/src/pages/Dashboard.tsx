@@ -296,6 +296,7 @@ function ComplianceDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Co
 
 export function Dashboard() {
   const { user } = useAuth()
+  const role = user?.role ?? 'AGENT'
   const [kpis, setKpis] = useState<DashboardKpis | null>(null)
   const [categories, setCategories] = useState<CategoryBreakdown | null>(null)
   const [channels, setChannels] = useState<ChannelDistribution | null>(null)
@@ -306,16 +307,17 @@ export function Dashboard() {
   useEffect(() => {
     async function load() {
       try {
-        const [kpiData, catData, chData, recentData] = await Promise.all([
+        const isAgent = role === 'AGENT'
+        const [kpiData, catData, chData, queueData] = await Promise.all([
           api.getKpis(),
           api.getCategories(),
           api.getChannels(),
-          api.getRecentComplaints(20),
+          isAgent ? api.getMyQueue(20) : api.getRecentComplaints(20),
         ])
         setKpis(kpiData)
         setCategories(catData)
         setChannels(chData)
-        setRecent(recentData.complaints)
+        setRecent(queueData.complaints)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load dashboard')
       } finally {
@@ -323,7 +325,7 @@ export function Dashboard() {
       }
     }
     load()
-  }, [])
+  }, [role])
 
   if (loading) {
     return (
@@ -355,8 +357,6 @@ export function Dashboard() {
       </div>
     )
   }
-
-  const role = user?.role ?? 'AGENT'
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>

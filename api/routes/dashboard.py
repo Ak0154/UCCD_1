@@ -45,7 +45,12 @@ def get_kpis(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
-    cache_key = "dashboard:kpis"
+    # Scope KPI cache key by role and agent email to support private queues vs global stats
+    if current_user.role == "AGENT":
+        cache_key = f"dashboard:kpis:AGENT:{current_user.email}"
+    else:
+        cache_key = f"dashboard:kpis:{current_user.role}:all"
+
     try:
         cached = r.get(cache_key)
         if cached:
@@ -53,34 +58,44 @@ def get_kpis(
     except Exception:
         pass
 
-    total = db.query(Complaint).count()
-    open_count = db.query(Complaint).filter(Complaint.status != "resolved").count()
-    escalated = db.query(Complaint).filter(Complaint.status == "escalated").count()
-    breached = db.query(Complaint).filter(Complaint.sla_breached.is_(True)).count()
-    queued = db.query(Complaint).filter(Complaint.status == "queued").count()
-    in_progress = db.query(Complaint).filter(Complaint.status == "in_progress").count()
+    # Start base query
+    query = db.query(Complaint)
+
+    # Filter by assigned agent if the current user is an Agent
+    if current_user.role == "AGENT":
+        query = query.filter(Complaint.assigned_to == current_user.email)
+
+    total = query.count()
+    open_count = query.filter(Complaint.status != "resolved").count()
+    escalated = query.filter(Complaint.status == "escalated").count()
+    breached = query.filter(Complaint.sla_breached.is_(True)).count()
+    queued = query.filter(Complaint.status == "queued").count()
+    in_progress = query.filter(Complaint.status == "in_progress").count()
 
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    resolved_today = db.query(Complaint).filter(
+    resolved_today = query.filter(
         Complaint.status == "resolved",
         Complaint.resolved_at >= today,
     ).count()
 
-    resolved = db.query(Complaint).filter(Complaint.status == "resolved").count()
+    resolved = query.filter(Complaint.status == "resolved").count()
     resolution_rate = round((resolved / total * 100) if total > 0 else 100.0, 1)
 
-    sla_at_risk = db.query(Complaint).filter(
+    sla_at_risk = query.filter(
         Complaint.status != "resolved",
         Complaint.sla_deadline.isnot(None),
         Complaint.sla_deadline <= datetime.now(timezone.utc) + timedelta(hours=2),
         Complaint.sla_breached.is_(False),
     ).count()
 
-    resolved_times = db.query(Complaint.resolved_at, Complaint.created_at).filter(
+    resolved_times_query = db.query(Complaint.resolved_at, Complaint.created_at).filter(
         Complaint.status == "resolved",
         Complaint.resolved_at.isnot(None),
         Complaint.resolved_at >= datetime.now(timezone.utc) - timedelta(days=30),
-    ).all()
+    )
+    if current_user.role == "AGENT":
+        resolved_times_query = resolved_times_query.filter(Complaint.assigned_to == current_user.email)
+    resolved_times = resolved_times_query.all()
 
     avg_seconds = 0.0
     if resolved_times:
@@ -90,7 +105,7 @@ def get_kpis(
 
     avg_hours = round(avg_seconds / 3600, 1)
 
-    regulatory_flagged = db.query(Complaint).filter(
+    regulatory_flagged = query.filter(
         Complaint.regulatory_flag.is_(True),
         Complaint.status != "resolved",
     ).count()

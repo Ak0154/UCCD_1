@@ -15,7 +15,7 @@ def get_kpis_alias(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR", "COMPLIANCE")),
 ):
-    return get_kpis(db=db)
+    return get_kpis(db=db, current_user=current_user)
 
 
 @router.get("/escalations")
