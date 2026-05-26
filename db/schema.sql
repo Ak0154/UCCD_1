@@ -63,3 +63,33 @@ CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
 CREATE INDEX IF NOT EXISTS idx_complaints_embedding_hnsw
     ON complaints
     USING hnsw (embedding vector_cosine_ops);
+
+CREATE TABLE IF NOT EXISTS outbound_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    complaint_id UUID REFERENCES complaints(id) ON DELETE SET NULL,
+    channel VARCHAR(100) NOT NULL,
+    source_ref VARCHAR(255),
+    message_text TEXT NOT NULL,
+    direction VARCHAR(20) DEFAULT 'outbound',
+    status VARCHAR(20) DEFAULT 'pending',
+    provider_message_id VARCHAR(512),
+    sent_at TIMESTAMPTZ DEFAULT NOW(),
+    delivered_at TIMESTAMPTZ,
+    error_message TEXT,
+    metadata JSONB DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS idx_outbound_complaint ON outbound_messages(complaint_id);
+CREATE INDEX IF NOT EXISTS idx_outbound_channel ON outbound_messages(channel);
+
+CREATE TABLE IF NOT EXISTS webhook_events (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    channel VARCHAR(100) NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    raw_payload JSONB NOT NULL,
+    processed BOOLEAN DEFAULT FALSE,
+    complaint_id UUID,
+    error_message TEXT,
+    received_at TIMESTAMPTZ DEFAULT NOW(),
+    processed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_webhook_channel ON webhook_events(channel);

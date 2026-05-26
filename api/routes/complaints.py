@@ -15,8 +15,6 @@ from services.draft_service import generate_draft
 from api.auth import require_role
 from api.models.user import User
 from kafka.producer import publish_complaint
-import os
-import requests
 
 class RespondResolveRequest(BaseModel):
     response_text: str
@@ -295,29 +293,21 @@ def respond_and_resolve_complaint(
     except Exception:
         pass
 
-    # Closed-loop reply if channel is Telegram and source_ref (chat_id) is present
-    telegram_sent = False
-    if complaint.channel.lower() == "telegram" and complaint.source_ref:
-        bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-        if bot_token:
-            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-            payload = {
-                "chat_id": complaint.source_ref,
-                "text": f"Your ticket {complaint.id} has been resolved.\n\nResolution Notes:\n{body.response_text}"
-            }
-            try:
-                r = requests.post(url, json=payload, timeout=5)
-                if r.status_code == 200:
-                    telegram_sent = True
-                else:
-                    print(f"Failed to send Telegram message: {r.text}")
-            except Exception as e:
-                print(f"Exception sending Telegram reply: {e}")
-                
+    # Closed-loop reply through channel registry
+    channel_sent = False
+    try:
+        from services.channels import send_response_sync
+        channel_sent = send_response_sync(
+            complaint,
+            f"Your ticket {complaint.id} has been resolved.\n\nResolution Notes:\n{body.response_text}"
+        )
+    except Exception as e:
+        print(f"Exception sending channel reply: {e}")
+
     return {
         "status": "success",
         "message": "Complaint resolved successfully",
         "complaint_id": complaint_id,
-        "telegram_sent": telegram_sent
+        "channel_sent": channel_sent
     }
 

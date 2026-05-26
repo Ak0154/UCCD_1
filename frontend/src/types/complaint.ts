@@ -106,10 +106,39 @@ export interface TrendsResponse {
   }
 }
 
-export interface DraftResponse {
+export interface RespondResolveResult {
+  status: string
+  message: string
   complaint_id: string
-  tone: string
-  draft: string
+  channel_sent: boolean
+}
+
+export interface ChannelStatusItem {
+  name: string
+  display_name: string
+  enabled: boolean
+  supports_inbound: boolean
+  supports_outbound: boolean
+  inbound_method: string
+}
+
+export interface ChannelStatusList {
+  channels: ChannelStatusItem[]
+}
+
+export interface OutboundMessageRecord {
+  id: string
+  complaint_id?: string | null
+  channel: string
+  source_ref?: string | null
+  message_text: string
+  direction: string
+  status: string
+  provider_message_id?: string | null
+  sent_at?: string | null
+  delivered_at?: string | null
+  error_message?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 export interface HistoryEvent {

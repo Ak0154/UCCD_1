@@ -19,3 +19,6 @@ httpx
 pytest
 pytest-asyncio
 scikit-learn
+sendgrid
+tweety-ns
+instagrapi
