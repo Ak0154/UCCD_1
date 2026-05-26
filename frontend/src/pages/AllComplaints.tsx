@@ -1,5 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppSidebar } from '../layout/AppSidebar'
+import { api } from '../api/client'
+import type { Complaint } from '../types/complaint'
 
 const severityColors: Record<string, { bg: string; text: string }> = {
   Critical: { bg: '#FEE2E2', text: '#DC2626' },
@@ -10,9 +12,18 @@ const severityColors: Record<string, { bg: string; text: string }> = {
 
 const sentimentEmoji: Record<string, string> = {
   'Very negative': '🔴',
+  Angry: '🔴',
+  Frustrated: '🔴',
+  Furious: '🔴',
   Negative: '🟠',
+  Anxious: '🟠',
+  Disappointed: '🟠',
+  Worried: '🟠',
   Neutral: '🟡',
+  Calm: '🟡',
   Positive: '🟢',
+  Happy: '🟢',
+  Satisfied: '🟢',
 }
 
 const statusColors: Record<string, { bg: string; text: string }> = {
@@ -24,14 +35,24 @@ const statusColors: Record<string, { bg: string; text: string }> = {
 
 const channelIcons: Record<string, string> = {
   WhatsApp: '💬',
+  whatsapp: '💬',
   Email: '📧',
+  email: '📧',
   App: '📱',
   'IVR Call': '📞',
   Branch: '🏦',
   Web: '🌐',
+  Telegram: '💬',
+  telegram: '💬',
+  Phone: '📞',
+  phone: '📞',
+  Chat: '💬',
+  chat: '💬',
+  Sms: '📱',
+  sms: '📱',
 }
 
-interface ComplaintRow {
+interface MappedComplaint {
   id: string
   severity: string
   customer: string
@@ -52,66 +73,77 @@ interface ComplaintRow {
   ticketId: string
 }
 
-const mockComplaints: ComplaintRow[] = Array.from({ length: 30 }, (_, i) => {
-  const sevs = ['Critical', 'High', 'Medium', 'Low']
-  const sev = sevs[i % 4]
-  const channels = ['WhatsApp', 'Email', 'App', 'IVR Call', 'Branch', 'Web']
-  const channel = channels[i % 6]
-  const sentiments = ['Very negative', 'Negative', 'Neutral', 'Positive']
-  const sentiment = sentiments[i % 4]
-  const statuses = ['Open', 'In Progress', 'Escalated', 'Resolved']
-  const status = statuses[i % 4]
-  const agents = ['Arjun K.', 'Priya M.', 'Rahul S.', 'Neha G.']
-  const agent = agents[i % 4]
-  const products = ['UPI', 'NetBanking', 'Credit Card', 'Loan', 'Fixed Deposit', 'Savings']
-  const product = products[i % 6]
-  const accounts = ['Savings', 'Credit Card', 'Loan', 'Savings', 'Savings', 'Credit Card']
-  const slaVals = [{ p: 92, c: '#DC2626', l: '1h left' }, { p: 68, c: '#EA580C', l: '4h left' }, { p: 45, c: '#EA580C', l: '6h left' }, { p: 22, c: '#22C55E', l: '18h left' }]
-  const sla = slaVals[i % 4]
-  const dupCount = sev === 'Critical' || sev === 'High' ? (i % 3) + 2 : 0
+function mapComplaint(c: Complaint): MappedComplaint {
+  const slaDeadline = c.sla_deadline ? new Date(c.sla_deadline).getTime() : Date.now() + 28800000
+  const slaTotalSeconds = c.sla_tier === 'HIGH' || c.sla_tier === 'REGULATORY' ? 14400 : 28800
+  const slaRemaining = c.sla_breached ? 0 : Math.max(0, Math.round((slaDeadline - Date.now()) / 1000))
+  const slaConsumedPercent = Math.min(100, Math.max(0, Math.round(((slaTotalSeconds - slaRemaining) / slaTotalSeconds) * 100)))
+
+  let slaColor: string
+  if (c.sla_breached || slaConsumedPercent > 90) slaColor = '#DC2626'
+  else if (slaConsumedPercent > 60) slaColor = '#EA580C'
+  else if (slaConsumedPercent > 30) slaColor = '#CA8A04'
+  else slaColor = '#22C55E'
+
+  let slaLabel: string
+  if (c.sla_breached) slaLabel = 'Overdue'
+  else if (slaRemaining < 3600) slaLabel = `${Math.round(slaRemaining / 60)}m left`
+  else slaLabel = `${Math.round(slaRemaining / 3600)}h left`
+
+  const priority = c.priority_tier ?? 99
+  const severity: string = c.sla_breached && priority <= 2 ? 'Critical'
+    : priority <= 2 ? 'High'
+    : priority === 3 ? 'Medium'
+    : 'Low'
+
+  const statusDisplay: string =
+    c.status === 'queued' || c.status === 'new' ? 'Open'
+    : c.status === 'in_progress' ? 'In Progress'
+    : c.status === 'escalated' ? 'Escalated'
+    : c.status === 'resolved' ? 'Resolved'
+    : 'Open'
+
+  let sentiment = 'Neutral'
+  if (c.emotion_arc && typeof c.emotion_arc === 'object' && !Array.isArray(c.emotion_arc)) {
+    const arc = c.emotion_arc as Record<string, unknown>
+    sentiment = typeof arc.current === 'string' ? arc.current
+      : typeof arc.initial === 'string' ? arc.initial
+      : 'Neutral'
+  }
+
+  const channelFormatted = c.channel.charAt(0).toUpperCase() + c.channel.slice(1)
+  const summary = (c.raw_text ?? '')
+  const truncatedSummary = summary.length > 60 ? summary.slice(0, 60) + '...' : summary
+
+  const assigned = c.assigned_to ?? 'Unassigned'
+  const avatar = assigned
+    .split(/[\s@._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((s) => s.charAt(0).toUpperCase())
+    .join('')
 
   return {
-    id: `#CNS-${4821 + i}`,
-    severity: sev,
-    customer: `Customer ${1001 + i}`,
-    accountType: accounts[i % 6],
-    summary: [
-      'UPI transaction debited but not credited to beneficiary',
-      'Credit card charged twice for Amazon purchase',
-      'NetBanking locked after incorrect password attempts',
-      'FD maturity amount not reflecting in savings account',
-      'Mobile number update request pending verification',
-      'Auto-debit for insurance without customer consent',
-    ][i % 6],
-    product,
-    channel,
+    id: String(c.id).slice(0, 8),
+    severity,
+    customer: c.customer_name ?? c.customer_id,
+    accountType: c.account_number ?? '',
+    summary: truncatedSummary,
+    product: c.product_code ?? c.complaint_type ?? 'Unknown',
+    channel: channelFormatted,
     sentiment,
-    assignedTo: agent,
-    assignedAvatar: agent.charAt(0) + (agent.split(' ')[1]?.charAt(0) ?? ''),
-    slaPercent: sla.p,
-    slaColor: sla.c,
-    slaLabel: sla.l,
-    status,
-    rawIssue: [
-      'Customer attempted UPI transfer of ₹45,000 via GPay. Amount debited from HDFC account but beneficiary (SBI) did not receive credit. Transaction reference TXN-2026-59231 shows "processing" status for 72 hours. Customer has followed up 4 times.',
-      'Amazon order #AMZ-8821 showed payment failure on checkout, so customer retried. Both attempts of ₹12,499 each were processed by HDFC. Duplicate charge confirmed on statement. Amazon refund policy requires bank dispute.',
-      'Customer entered wrong password 3 times while traveling abroad. Account auto-locked. Cannot reach phone banking from overseas. Needs urgent access for hotel payment.',
-      'Fixed deposit #FD-4412 matured 5 days ago. Maturity amount ₹2,50,000 should have auto-credited to linked savings account #SA-8891. System shows "pending reconciliation".',
-      'Customer visited Bandra branch with Aadhaar card to update mobile number from old number (no longer active) to current number. Branch accepted documents but 10 days passed — no update.',
-      '₹450 debited monthly for PMJJBY insurance without customer consent. No SMS alert or opt-in confirmation. Customer never signed up for this policy. Demands refund of all debits.',
-    ][i % 6],
-    lastMessage: [
-      'Agent: We have escalated your transaction to the payments team. Reference #ESC-8821.',
-      'Customer: It has been 3 days now. When will I get my money back? This is very frustrating.',
-      'Agent: We have temporarily unlocked your account for 24 hours. Please reset your password immediately.',
-      'Customer: I need this money for my daughter\'s school fees. Please process urgently.',
-      'Agent: Your KYC documents have been verified. Mobile number will be updated within 2 hours.',
-      'Customer: I am filing a complaint with RBI ombudsman if this is not resolved today.',
-    ][i % 6],
-    duplicates: dupCount,
-    ticketId: `TXN-2026-${59231 + i}`,
+    assignedTo: assigned,
+    assignedAvatar: avatar,
+    slaPercent: slaConsumedPercent,
+    slaColor,
+    slaLabel,
+    status: statusDisplay,
+    rawIssue: summary,
+    lastMessage: c.ai_draft ?? '',
+    duplicates: c.cluster_id ? 1 : 0,
+    ticketId: c.source_ref ?? `TXN-${String(c.id).slice(0, 6)}`,
   }
-})
+}
 
 function TopBar({ count }: { count: number }) {
   return (
@@ -248,7 +280,7 @@ function BulkBtn({ label, onClick, color }: { label: string; onClick: () => void
   )
 }
 
-function Drawer({ row, onClose }: { row: ComplaintRow; onClose: () => void }) {
+function Drawer({ row, onClose }: { row: MappedComplaint; onClose: () => void }) {
   return (
     <>
       <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.2)', zIndex: 40 }} />
@@ -279,7 +311,7 @@ function Drawer({ row, onClose }: { row: ComplaintRow; onClose: () => void }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {[
               ['Customer', row.customer],
-              ['Account', row.accountType],
+              ['Account', row.accountType || '—'],
               ['Product', row.product],
               ['Channel', `${channelIcons[row.channel] ?? ''} ${row.channel}`],
               ['Assigned To', row.assignedTo],
@@ -301,8 +333,8 @@ function Drawer({ row, onClose }: { row: ComplaintRow; onClose: () => void }) {
             <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Communication Timeline</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderLeft: '2px solid #E5E7EB', paddingLeft: 14 }}>
               {[
-                { time: 'Today 10:45 AM', text: row.lastMessage, type: 'agent' },
-                { time: 'Today 9:30 AM', text: row.rawIssue.slice(0, 100) + '...', type: 'customer' },
+                { time: 'Today 10:45 AM', text: row.lastMessage || 'AI draft pending', type: 'agent' },
+                { time: 'Today 9:30 AM', text: row.rawIssue.slice(0, 100) + (row.rawIssue.length > 100 ? '...' : ''), type: 'customer' },
                 { time: 'Today 9:15 AM', text: 'Complaint received via ' + row.channel, type: 'system' },
               ].map((msg, i) => (
                 <div key={i} style={{ position: 'relative' }}>
@@ -362,7 +394,30 @@ export function AllComplaints() {
   const [viewMode, setViewMode] = useState('table')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [drawerRow, setDrawerRow] = useState<ComplaintRow | null>(null)
+  const [drawerRow, setDrawerRow] = useState<MappedComplaint | null>(null)
+  const [complaints, setComplaints] = useState<MappedComplaint[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    async function fetchComplaints() {
+      setLoading(true)
+      setError(null)
+      try {
+        const response = await api.listComplaints({ limit: 100 })
+        if (cancelled) return
+        setComplaints(response.complaints.map(mapComplaint))
+      } catch (err) {
+        if (cancelled) return
+        setError(err instanceof Error ? err.message : 'Failed to load complaints')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    fetchComplaints()
+    return () => { cancelled = true }
+  }, [])
 
   const setFilter = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -384,7 +439,7 @@ export function AllComplaints() {
     }
   }
 
-  const filtered = mockComplaints.filter((r) => {
+  const filtered = complaints.filter((r) => {
     if (filters.status !== 'All' && r.status !== filters.status) return false
     if (filters.severity !== 'All' && r.severity !== filters.severity) return false
     if (filters.channel !== 'All' && r.channel !== filters.channel) return false
@@ -405,7 +460,6 @@ export function AllComplaints() {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <AppSidebar activeItem="All Complaints" />
 
-      {/* MAIN */}
       <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: '#F5F6FA' }}>
         <TopBar count={filtered.length} />
         <FilterBar
@@ -419,163 +473,184 @@ export function AllComplaints() {
           onBulkExport={() => setSelectedIds(new Set())}
         />
 
-        <div style={{ padding: '0 24px', paddingBottom: 24 }}>
-          {/* TABLE HEADER */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '36px 140px 130px minmax(0, 1fr) 90px 80px 60px 100px 80px 90px 110px',
-            gap: 12, alignItems: 'center',
-            padding: '12px 16px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB',
-            borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB',
-            position: 'sticky', top: 77, zIndex: 5,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll}
-                style={{ width: 15, height: 15, cursor: 'pointer' }} />
+        {loading && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 24px', gap: 12 }}>
+            <div style={{ width: 20, height: 20, borderRadius: '50%', border: '3px solid #E5E7EB', borderTopColor: '#3B82F6', animation: 'spin .6s linear infinite' }} />
+            <span style={{ fontSize: 13, color: '#9CA3AF', fontWeight: 500 }}>Loading complaints...</span>
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div style={{ margin: '24px', padding: '16px 20px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#991B1B', marginBottom: 2 }}>Failed to load complaints</div>
+              <div style={{ fontSize: 12, color: '#B91C1C' }}>{error}</div>
             </div>
-            {['ID · Severity', 'Customer', 'Issue Summary', 'Product', 'Channel', 'Sentiment', 'Assigned', 'SLA', 'Status', 'Actions'].map((h) => (
-              <div key={h} style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap' }}>{h}</div>
-            ))}
+            <button type="button" onClick={() => window.location.reload()} style={{ marginLeft: 'auto', padding: '5px 14px', borderRadius: 6, border: '1px solid #FECACA', background: 'white', color: '#DC2626', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              Retry
+            </button>
           </div>
+        )}
 
-          {/* TABLE ROWS */}
-          <div style={{ background: 'white', border: '1px solid #E5E7EB', borderTop: 'none', borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: 'hidden' }}>
-            {sorted.map((row) => {
-              const sev = severityColors[row.severity]
-              const st = statusColors[row.status]
-              const isExpanded = expandedId === row.id
-              const isSelected = selectedIds.has(row.id)
+        {!loading && !error && (
+          <div style={{ padding: '0 24px', paddingBottom: 24 }}>
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '36px 140px 130px minmax(0, 1fr) 90px 80px 60px 100px 80px 90px 110px',
+              gap: 12, alignItems: 'center',
+              padding: '12px 16px', background: '#F9FAFB', borderBottom: '1px solid #E5E7EB',
+              borderLeft: '1px solid #E5E7EB', borderRight: '1px solid #E5E7EB',
+              position: 'sticky', top: 77, zIndex: 5,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <input type="checkbox" checked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll}
+                  style={{ width: 15, height: 15, cursor: 'pointer' }} />
+              </div>
+              {['ID · Severity', 'Customer', 'Issue Summary', 'Product', 'Channel', 'Sentiment', 'Assigned', 'SLA', 'Status', 'Actions'].map((h) => (
+                <div key={h} style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', whiteSpace: 'nowrap' }}>{h}</div>
+              ))}
+            </div>
 
-              return (
-                <div key={row.id}>
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '36px 140px 130px minmax(0, 1fr) 90px 80px 60px 100px 80px 90px 110px',
-                      gap: 12, alignItems: 'center',
-                      padding: '11px 16px', borderBottom: '1px solid #F3F4F6',
-                      background: isSelected ? '#EFF6FF' : 'white',
-                      transition: 'background .1s',
-                      cursor: 'default',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <input type="checkbox" checked={isSelected}
-                        onChange={() => toggleSelect(row.id)}
-                        style={{ width: 15, height: 15, cursor: 'pointer' }} />
-                    </div>
+            <div style={{ background: 'white', border: '1px solid #E5E7EB', borderTop: 'none', borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: 'hidden' }}>
+              {sorted.map((row) => {
+                const sev = severityColors[row.severity]
+                const st = statusColors[row.status]
+                const isExpanded = expandedId === row.id
+                const isSelected = selectedIds.has(row.id)
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <button type="button" onClick={() => setExpandedId(isExpanded ? null : row.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"
-                          style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform .15s' }}>
-                          <polyline points="6 9 12 15 18 9" />
-                        </svg>
-                      </button>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{row.id}</span>
-                      <span style={{ padding: '1px 6px', borderRadius: 8, fontSize: 9, fontWeight: 700, color: sev.text, background: sev.bg, whiteSpace: 'nowrap' }}>{row.severity}</span>
-                    </div>
-
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.customer}</div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF' }}>{row.accountType}</div>
-                    </div>
-
-                    <div style={{ fontSize: 12, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{row.summary}</div>
-
-                    <span style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', whiteSpace: 'nowrap' }}>{row.product}</span>
-
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' }}>
-                      {channelIcons[row.channel] ?? ''} {row.channel}
-                    </span>
-
-                    <span style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{sentimentEmoji[row.sentiment] ?? ''}</span>
-
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{
-                        width: 22, height: 22, borderRadius: '50%', background: '#EFF6FF', color: '#3B82F6',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: 9, fontWeight: 700, flexShrink: 0,
-                      }}>{row.assignedAvatar}</span>
-                      <span style={{ fontSize: 11, color: '#4B5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.assignedTo}</span>
-                    </span>
-
-                    <div>
-                      <div style={{ height: 5, borderRadius: 3, background: '#F3F4F6', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${row.slaPercent}%`, borderRadius: 3, background: row.slaColor }} />
+                return (
+                  <div key={row.id}>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '36px 140px 130px minmax(0, 1fr) 90px 80px 60px 100px 80px 90px 110px',
+                        gap: 12, alignItems: 'center',
+                        padding: '11px 16px', borderBottom: '1px solid #F3F4F6',
+                        background: isSelected ? '#EFF6FF' : 'white',
+                        transition: 'background .1s',
+                        cursor: 'default',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <input type="checkbox" checked={isSelected}
+                          onChange={() => toggleSelect(row.id)}
+                          style={{ width: 15, height: 15, cursor: 'pointer' }} />
                       </div>
-                      <div style={{ fontSize: 9, fontWeight: 700, color: row.slaColor, marginTop: 2 }}>{row.slaLabel}</div>
-                    </div>
 
-                    <span style={{
-                      padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600,
-                      color: st.text, background: st.bg, whiteSpace: 'nowrap',
-                      display: 'inline-block', width: 'fit-content',
-                    }}>{row.status}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                        <button type="button" onClick={() => setExpandedId(isExpanded ? null : row.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round"
+                            style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform .15s' }}>
+                            <polyline points="6 9 12 15 18 9" />
+                          </svg>
+                        </button>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{row.id}</span>
+                        <span style={{ padding: '1px 6px', borderRadius: 8, fontSize: 9, fontWeight: 700, color: sev.text, background: sev.bg, whiteSpace: 'nowrap' }}>{row.severity}</span>
+                      </div>
 
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {[
-                        { label: 'View', onClick: () => setDrawerRow(row) },
-                        { label: 'Assign', onClick: () => {} },
-                        { label: 'Reply', onClick: () => setDrawerRow(row) },
-                      ].map((action) => (
-                        <button key={action.label} type="button" onClick={action.onClick}
-                          style={{
-                            padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
-                            color: action.label === 'View' ? '#3B82F6' : '#6B7280',
-                            background: action.label === 'View' ? '#EFF6FF' : 'transparent',
-                            border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
-                          }}
-                        >{action.label}</button>
-                      ))}
-                    </div>
-                  </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.customer}</div>
+                        <div style={{ fontSize: 10, color: '#9CA3AF' }}>{row.accountType}</div>
+                      </div>
 
-                  {/* EXPANDED ROW */}
-                  {isExpanded && (
-                    <div style={{
-                      padding: '14px 16px 14px 52px', borderBottom: '1px solid #F3F4F6',
-                      background: '#FAFBFC', display: 'flex', flexDirection: 'column', gap: 10,
-                    }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.3px' }}>AI Key Issue Extraction</div>
-                      <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.5 }}>{row.rawIssue}</div>
+                      <div style={{ fontSize: 12, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{row.summary}</div>
 
-                      <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.3px', marginTop: 4 }}>Last Message</div>
-                      <div style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.4 }}>{row.lastMessage}</div>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', whiteSpace: 'nowrap' }}>{row.product}</span>
 
-                      {row.duplicates > 0 && (
-                        <div style={{ fontSize: 11, fontWeight: 600, color: '#92400E', background: '#FEF9C3', padding: '6px 10px', borderRadius: 6 }}>
-                          ⚠ {row.duplicates} similar complaints detected — consider cluster escalation
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#6B7280', whiteSpace: 'nowrap' }}>
+                        {channelIcons[row.channel] ?? ''} {row.channel}
+                      </span>
+
+                      <span style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{sentimentEmoji[row.sentiment] ?? sentimentEmoji.Neutral}</span>
+
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{
+                          width: 22, height: 22, borderRadius: '50%', background: '#EFF6FF', color: '#3B82F6',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 9, fontWeight: 700, flexShrink: 0,
+                        }}>{row.assignedAvatar}</span>
+                        <span style={{ fontSize: 11, color: '#4B5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.assignedTo}</span>
+                      </span>
+
+                      <div>
+                        <div style={{ height: 5, borderRadius: 3, background: '#F3F4F6', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${row.slaPercent}%`, borderRadius: 3, background: row.slaColor }} />
                         </div>
-                      )}
+                        <div style={{ fontSize: 9, fontWeight: 700, color: row.slaColor, marginTop: 2 }}>{row.slaLabel}</div>
+                      </div>
 
-                      <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
-                        <textarea
-                          placeholder="Type a quick reply..."
-                          rows={2}
-                          style={{
-                            flex: 1, borderRadius: 6, border: '1px solid #D1D5DB',
-                            padding: '8px 10px', fontSize: 12, resize: 'none',
-                            outline: 'none', color: '#374151',
-                          }}
-                        />
-                        <button type="button" style={{
-                          padding: '6px 16px', borderRadius: 6, background: '#3B82F6',
-                          color: 'white', border: 'none', fontSize: 12, fontWeight: 600,
-                          cursor: 'pointer', height: 'fit-content', alignSelf: 'flex-end',
-                        }}>Send</button>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600,
+                        color: st.text, background: st.bg, whiteSpace: 'nowrap',
+                        display: 'inline-block', width: 'fit-content',
+                      }}>{row.status}</span>
+
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {[
+                          { label: 'View', onClick: () => setDrawerRow(row) },
+                          { label: 'Assign', onClick: () => {} },
+                          { label: 'Reply', onClick: () => setDrawerRow(row) },
+                        ].map((action) => (
+                          <button key={action.label} type="button" onClick={action.onClick}
+                            style={{
+                              padding: '3px 8px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                              color: action.label === 'View' ? '#3B82F6' : '#6B7280',
+                              background: action.label === 'View' ? '#EFF6FF' : 'transparent',
+                              border: 'none', cursor: 'pointer', whiteSpace: 'nowrap',
+                            }}
+                          >{action.label}</button>
+                        ))}
                       </div>
                     </div>
-                  )}
-                </div>
-              )
-            })}
+
+                    {isExpanded && (
+                      <div style={{
+                        padding: '14px 16px 14px 52px', borderBottom: '1px solid #F3F4F6',
+                        background: '#FAFBFC', display: 'flex', flexDirection: 'column', gap: 10,
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.3px' }}>AI Key Issue Extraction</div>
+                        <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.5 }}>{row.rawIssue}</div>
+
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '.3px', marginTop: 4 }}>Last Message</div>
+                        <div style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.4 }}>{row.lastMessage || 'No messages yet'}</div>
+
+                        {row.duplicates > 0 && (
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#92400E', background: '#FEF9C3', padding: '6px 10px', borderRadius: 6 }}>
+                            ⚠ {row.duplicates} similar complaints detected — consider cluster escalation
+                          </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                          <textarea
+                            placeholder="Type a quick reply..."
+                            rows={2}
+                            style={{
+                              flex: 1, borderRadius: 6, border: '1px solid #D1D5DB',
+                              padding: '8px 10px', fontSize: 12, resize: 'none',
+                              outline: 'none', color: '#374151',
+                            }}
+                          />
+                          <button type="button" style={{
+                            padding: '6px 16px', borderRadius: 6, background: '#3B82F6',
+                            color: 'white', border: 'none', fontSize: 12, fontWeight: 600,
+                            cursor: 'pointer', height: 'fit-content', alignSelf: 'flex-end',
+                          }}>Send</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* DRAWER */}
       {drawerRow && <Drawer row={drawerRow} onClose={() => setDrawerRow(null)} />}
     </div>
   )

@@ -21,6 +21,15 @@ class RespondResolveRequest(BaseModel):
 
 router = APIRouter(prefix="/api/v1/complaints", tags=["complaints"])
 
+def find_complaint(complaint_id: str, db: Session):
+    import uuid
+    from sqlalchemy import cast, String
+    try:
+        uuid.UUID(complaint_id)
+        return db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    except ValueError:
+        return db.query(Complaint).filter(cast(Complaint.id, String).like(f"{complaint_id}%")).first()
+
 @router.post("",response_model=ComplaintResponse,status_code=201,)
 def create_complaint(complaint: ComplaintCreate,background_tasks: BackgroundTasks,db: Session=Depends(get_db)):
     new_complaint = {
@@ -163,7 +172,7 @@ def list_escalated_complaints(
 
 @router.get("/{complaint_id}",response_model=ComplaintResponse)
 def get_complaint(complaint_id: str, db: Session = Depends(get_db)):
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
     return complaint
@@ -191,7 +200,7 @@ def update_complaint_status(
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR")),
 ):
     
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if complaint is None:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
@@ -219,7 +228,7 @@ def assign_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("AGENT")),
 ):
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if complaint is None:
         raise HTTPException(status_code=404, detail="Complaint not found")
     if complaint.status not in ("queued", "new"):
@@ -248,7 +257,7 @@ def assign_complaint(
 
 @router.get("/{complaint_id}/draft")
 async def generate_response_draft(complaint_id: str, tone: str = Query("apologetic"), db: Session = Depends(get_db)):
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
@@ -266,7 +275,7 @@ def respond_and_resolve_complaint(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("AGENT", "SUPERVISOR")),
 ):
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
         
@@ -329,7 +338,7 @@ async def request_user_details(
     complaint_id: str,
     db: Session = Depends(get_db),
 ):
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 
@@ -366,7 +375,7 @@ async def update_user_details(
     body: UserDetailsUpdate,
     db: Session = Depends(get_db),
 ):
-    complaint = db.query(Complaint).filter(Complaint.id == complaint_id).first()
+    complaint = find_complaint(complaint_id, db)
     if not complaint:
         raise HTTPException(status_code=404, detail="Complaint not found")
 

@@ -1,67 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppSidebar } from '../layout/AppSidebar'
+import { api } from '../api/client'
+import type { Complaint } from '../types/complaint'
 
-const reports = [
-  {
-    id: 'REG-2042', type: 'Monthly Complaint Summary', regulator: 'RBI',
-    period: 'Apr 1–30', count: 482, risk: 'High', status: 'Pending Review',
-    deadline: 'Due in 2 days', deadlineHours: 48,
-    categories: { 'UPI failures': 204, 'NetBanking issues': 131, 'Card disputes': 89, 'Loan complaints': 58 },
-    criticalEscalations: 18, slaBreaches: 6, duplicateClusters: 4,
-    summary: 'Complaint volume increased 28% compared to previous period. Major increase observed in UPI debit failures.',
-  },
-  {
-    id: 'REG-2038', type: 'Escalation Summary', regulator: 'RBI',
-    period: 'Apr 1–30', count: 38, risk: 'Medium', status: 'Submitted',
-    deadline: 'Submitted May 12', deadlineHours: 0,
-    categories: { 'L1→L2 escalations': 24, 'Auto-escalations': 14 },
-    criticalEscalations: 12, slaBreaches: 3, duplicateClusters: 1,
-    summary: 'Escalation volume consistent with prior period. Auto-escalation accuracy improved to 93%.',
-  },
-  {
-    id: 'REG-2035', type: 'Quarterly Compliance Report', regulator: 'SEBI',
-    period: 'Jan 1–Mar 31', count: 1247, risk: 'High', status: 'Draft',
-    deadline: 'Due in 5 days', deadlineHours: 120,
-    categories: { 'UPI': 412, 'Cards': 318, 'NetBanking': 289, 'Loans': 228 },
-    criticalEscalations: 42, slaBreaches: 19, duplicateClusters: 8,
-    summary: 'Q1 saw elevated UPI complaint volumes. Recommendation: pre-emptive gateway monitoring for Q2.',
-  },
-  {
-    id: 'REG-2031', type: 'Incident Report', regulator: 'RBI',
-    period: 'Apr 22', count: 86, risk: 'Critical', status: 'Pending Review',
-    deadline: 'Due in 12h', deadlineHours: 12,
-    categories: { 'Gateway timeout': 86 },
-    criticalEscalations: 18, slaBreaches: 8, duplicateClusters: 3,
-    summary: 'Critical incident report: payment gateway timeout affecting SBI→HDFC corridor. Immediate regulator notification required.',
-  },
-  {
-    id: 'REG-2027', type: 'Monthly Complaint Summary', regulator: 'RBI',
-    period: 'Mar 1–31', count: 312, risk: 'Low', status: 'Submitted',
-    deadline: 'Submitted Apr 5', deadlineHours: -1,
-    categories: { 'UPI': 124, 'Cards': 98, 'NetBanking': 90 },
-    criticalEscalations: 8, slaBreaches: 4, duplicateClusters: 2,
-    summary: 'March complaint volume within expected range. Card dispute rate declined 12% from February.',
-  },
-]
-
-const calendarItems = [
-  { date: 'May 12', title: 'Monthly Complaint Report', status: 'Completed' },
-  { date: 'May 15', title: 'Escalation Summary', status: 'Pending' },
-  { date: 'May 30', title: 'Quarterly Compliance Report', status: 'Upcoming' },
-]
-
-const auditTrail = [
-  { time: '11:25 AM', action: 'Submitted to RBI — confirmation #RBI-8821' },
-  { time: '11:12 AM', action: 'Reviewer approved — Neha Gupta (Compliance Head)' },
-  { time: '10:51 AM', action: 'Assigned to reviewer — Compliance Team' },
-  { time: '10:42 AM', action: 'Report generated — system auto-generation' },
-]
-
-const previousReports = [
-  { month: 'March', status: 'Submitted', count: 312 },
-  { month: 'February', status: 'Submitted', count: 284 },
-  { month: 'January', status: 'Submitted', count: 301 },
-]
+interface DisplayReport {
+  id: string
+  type: string
+  regulator: string
+  period: string
+  count: number
+  risk: string
+  status: string
+  deadline: string
+  deadlineHours: number
+  complaints: Complaint[]
+  categories: Record<string, number>
+  summary: string
+}
 
 function DeadlineBar({ hours, label }: { hours: number; label: string }) {
   const color = hours <= 24 ? '#DC2626' : hours <= 72 ? '#F59E0B' : '#16A34A'
@@ -77,10 +32,60 @@ function DeadlineBar({ hours, label }: { hours: number; label: string }) {
 }
 
 export function RegulatoryReports() {
+  const [reports, setReports] = useState<DisplayReport[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [period, setPeriod] = useState('Monthly')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [selectedReport, setSelectedReport] = useState(reports[0])
+  const [selectedReport, setSelectedReport] = useState<DisplayReport | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    api.listComplaints({ regulatory_flag: true, limit: 50 })
+      .then((res) => {
+        const grouped: Record<string, Complaint[]> = {}
+        res.complaints.forEach((c: Complaint) => {
+          const key = c.regulatory_obligation || 'Uncategorized'
+          if (!grouped[key]) grouped[key] = []
+          grouped[key].push(c)
+        })
+
+        const mapped: DisplayReport[] = Object.entries(grouped).map(([obligation, comps], i) => {
+          const categories: Record<string, number> = {}
+          comps.forEach((c: Complaint) => {
+            const ct = c.complaint_type || 'Other'
+            categories[ct] = (categories[ct] || 0) + 1
+          })
+
+          const riskLevels = comps.filter((c) => c.severity_score != null && c.severity_score >= 8).length
+          const risk = riskLevels > 5 ? 'Critical' : riskLevels > 2 ? 'High' : riskLevels > 0 ? 'Medium' : 'Low'
+
+          const statuses = new Set(comps.map((c) => c.status))
+          const status = statuses.has('Escalated') ? 'Pending Review' : statuses.has('Open') ? 'Draft' : 'Submitted'
+
+          return {
+            id: `REG-${2000 + i}`,
+            type: obligation,
+            regulator: 'RBI',
+            period: 'Current',
+            count: comps.length,
+            risk,
+            status,
+            deadline: status === 'Pending Review' ? 'Due in 2 days' : status === 'Draft' ? 'Due in 5 days' : 'Submitted',
+            deadlineHours: status === 'Pending Review' ? 48 : status === 'Draft' ? 120 : 0,
+            complaints: comps,
+            categories,
+            summary: `${comps.length} complaints flagged for regulatory reporting under "${obligation}".`,
+          }
+        })
+        setReports(mapped)
+        if (mapped.length > 0) setSelectedReport(mapped[0])
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load regulatory reports'))
+      .finally(() => setLoading(false))
+  }, [])
 
   const toggle = (id: string) => setSelectedIds((prev) => {
     const next = new Set(prev)
@@ -101,11 +106,34 @@ export function RegulatoryReports() {
     Submitted: { bg: '#DCFCE7', text: '#16A34A' },
   }
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <AppSidebar activeItem="Regulatory Reports" />
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F5F6FA' }}>
+          <div style={{ width: 32, height: 32, border: '3px solid #E5E7EB', borderTopColor: '#3B82F6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <AppSidebar activeItem="Regulatory Reports" />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#F5F6FA', gap: 16 }}>
+          <div style={{ fontSize: 14, color: '#DC2626' }}>{error}</div>
+          <button onClick={() => window.location.reload()} style={{ padding: '8px 20px', borderRadius: 8, background: '#3B82F6', color: 'white', border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Retry</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <AppSidebar activeItem="Regulatory Reports" />
       <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', background: '#F5F6FA' }}>
-        {/* ZONE 1 — TOP BAR */}
         <header style={{
           height: 56, background: 'white', borderBottom: '1px solid #E5E7EB',
           display: 'flex', alignItems: 'center', padding: '0 28px', gap: 16,
@@ -131,7 +159,6 @@ export function RegulatoryReports() {
           </select>
         </header>
 
-        {/* ZONE 2 — CONTROL BAR */}
         <div style={{
           background: 'white', borderBottom: '1px solid #E5E7EB',
           padding: '10px 28px', display: 'flex', flexDirection: 'column', gap: 10,
@@ -139,7 +166,7 @@ export function RegulatoryReports() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.3px' }}>Filter</span>
-            {['All', 'RBI', 'Monthly', 'Pending Review', 'Critical', 'UPI', 'SEBI', 'Draft', 'Submitted'].map((f) => (
+            {['All', 'RBI', 'Monthly', 'Pending Review', 'Critical', 'Draft', 'Submitted'].map((f) => (
               <button key={f} type="button" style={{
                 padding: '4px 12px', borderRadius: 999, fontSize: 11, fontWeight: 600,
                 border: '1px solid #E5E7EB', background: 'white', color: '#6B7280',
@@ -170,11 +197,7 @@ export function RegulatoryReports() {
         </div>
 
         <div style={{ padding: '24px 28px', display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-          {/* ZONE 3 — WORKSPACE */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(0, 1fr)', gap: 24, alignItems: 'start' }}>
-
-            {/* LEFT — REPORT QUEUE */}
             <div style={{ background: 'white', borderRadius: 16, boxShadow: '0 2px 10px rgba(0,0,0,.03)', overflow: 'hidden', minWidth: 0 }}>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid #F0F0F0' }}>
                 <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#111827' }}>Regulatory Report Queue</h3>
@@ -189,8 +212,8 @@ export function RegulatoryReports() {
 
               {reports.map((r) => {
                 const isExpanded = expandedId === r.id
-                const rk = riskColors[r.risk]
-                const st = statusColors[r.status]
+                const rk = riskColors[r.risk] ?? riskColors.Low
+                const st = statusColors[r.status] ?? statusColors.Draft
                 return (
                   <div key={r.id}>
                     <div onClick={() => setSelectedReport(r)}
@@ -235,7 +258,7 @@ export function RegulatoryReports() {
                       }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.3px' }}>Complaint Categories</div>
                         <div style={{ display: 'flex', gap: 12 }}>
-                          {Object.entries(r.categories).map(([k, v]) => (
+                          {Object.entries(r.categories).slice(0, 6).map(([k, v]) => (
                             <div key={k} style={{ textAlign: 'center' }}>
                               <div style={{ fontSize: 16, fontWeight: 700, color: '#111827' }}>{v}</div>
                               <div style={{ fontSize: 10, color: '#9CA3AF' }}>{k}</div>
@@ -243,9 +266,8 @@ export function RegulatoryReports() {
                           ))}
                         </div>
                         <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
-                          <span style={{ color: '#DC2626' }}>Critical escalations: {r.criticalEscalations}</span>
-                          <span style={{ color: '#F59E0B' }}>SLA breaches: {r.slaBreaches}</span>
-                          <span style={{ color: '#4F46E5' }}>Duplicate clusters: {r.duplicateClusters}</span>
+                          <span style={{ color: '#DC2626' }}>Flagged: {r.count}</span>
+                          <span style={{ color: '#F59E0B' }}>Risk: {r.risk}</span>
                         </div>
                         <div style={{ padding: 10, borderRadius: 8, background: '#F9FAFB', border: '1px solid #E5E7EB', fontSize: 11, color: '#4B5563', lineHeight: 1.4 }}>{r.summary}</div>
                         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -263,132 +285,114 @@ export function RegulatoryReports() {
               })}
             </div>
 
-            {/* RIGHT — COMPLIANCE INTELLIGENCE */}
-            <div style={{
-              background: 'white', borderRadius: 16, padding: 24,
-              boxShadow: '0 2px 10px rgba(0,0,0,.03)', position: 'sticky', top: 24,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-                <div style={{ width: 26, height: 26, borderRadius: 8, background: 'linear-gradient(135deg, #8B5CF6, #3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+            {selectedReport && (
+              <div style={{
+                background: 'white', borderRadius: 16, padding: 24,
+                boxShadow: '0 2px 10px rgba(0,0,0,.03)', position: 'sticky', top: 24,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: 'linear-gradient(135deg, #8B5CF6, #3B82F6)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>Compliance Intelligence</h3>
+                  <span style={{ fontSize: 10, color: '#9CA3AF', fontFamily: 'monospace', marginLeft: 'auto' }}>{selectedReport.id}</span>
                 </div>
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>Compliance Intelligence</h3>
-                <span style={{ fontSize: 10, color: '#9CA3AF', fontFamily: 'monospace', marginLeft: 'auto' }}>{selectedReport.id}</span>
-              </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Risk Analysis</div>
-                  <p style={{ margin: 0, fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
-                    {selectedReport.risk === 'Critical' ? 'Immediate regulator notification required. Incident report must be filed within 24h.' :
-                      selectedReport.risk === 'High' ? 'UPI complaints increased 42% this month. Potential compliance concern.' :
-                        'Report within expected compliance thresholds.'}
-                  </p>
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Historical Comparison</div>
-                  <div style={{ fontSize: 12 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ color: '#6B7280' }}>Previous period</span>
-                      <strong>312 complaints</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <span style={{ color: '#6B7280' }}>Current period</span>
-                      <strong style={{ color: '#DC2626' }}>{selectedReport.count} complaints</strong>
-                    </div>
-                    <div style={{ height: 6, borderRadius: 3, background: '#F3F4F6', overflow: 'hidden', marginBottom: 3 }}>
-                      <div style={{ height: '100%', width: '62%', borderRadius: 3, background: '#3B82F6' }} />
-                    </div>
-                    <div style={{ height: 6, borderRadius: 3, background: '#F3F4F6', overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.min((selectedReport.count / 500) * 100, 100)}%`, borderRadius: 3, background: '#DC2626' }} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4, fontSize: 10 }}>
-                      <span style={{ color: '#9CA3AF' }}>Mar</span>
-                      <span style={{ color: '#9CA3AF' }}>Apr</span>
-                    </div>
-                    <div style={{ marginTop: 4, fontSize: 11, fontWeight: 700, color: '#DC2626' }}>
-                      Increase: +{Math.round(((selectedReport.count - 312) / 312) * 100)}%
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Risk Analysis</div>
+                    <p style={{ margin: 0, fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>
+                      {selectedReport.risk === 'Critical' ? 'Immediate regulator notification required.' :
+                        selectedReport.risk === 'High' ? 'Elevated complaint volume. Review recommended.' :
+                          'Report within expected compliance thresholds.'}
+                    </p>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 6 }}>Obligation</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 3, fontSize: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#6B7280' }}>Type</span>
+                        <strong>{selectedReport.type}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#6B7280' }}>Flagged complaints</span>
+                        <strong style={{ color: '#DC2626' }}>{selectedReport.count}</strong>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 12, padding: 16 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>AI Recommendation</div>
-                  <ul style={{ margin: '0 0 12px 0', paddingLeft: 16, fontSize: 12, color: '#374151', lineHeight: 1.6 }}>
-                    <li>Flag for senior review</li>
-                    <li>Create escalation cluster</li>
-                    <li>Add UPI incident summary</li>
-                  </ul>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {['Apply', 'Generate Draft', 'Export'].map((b) => (
-                      <button key={b} type="button" style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: b === 'Apply' ? '#3B82F6' : b === 'Export' ? '#E5E7EB' : '#EEF2FF', color: b === 'Apply' ? 'white' : b === 'Export' ? '#6B7280' : '#4F46E5', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{b}</button>
-                    ))}
+                  <div style={{ background: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: 12, padding: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>AI Recommendation</div>
+                    <ul style={{ margin: '0 0 12px 0', paddingLeft: 16, fontSize: 12, color: '#374151', lineHeight: 1.6 }}>
+                      <li>Flag for senior review</li>
+                      <li>Create escalation cluster</li>
+                      <li>Add incident summary</li>
+                    </ul>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {['Apply', 'Generate Draft', 'Export'].map((b) => (
+                        <button key={b} type="button" style={{ padding: '5px 14px', borderRadius: 6, border: 'none', background: b === 'Apply' ? '#3B82F6' : b === 'Export' ? '#E5E7EB' : '#EEF2FF', color: b === 'Apply' ? 'white' : b === 'Export' ? '#6B7280' : '#4F46E5', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>{b}</button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* ZONE 4 — BOTTOM INTELLIGENCE */}
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
-
-            {/* SUBMISSION CALENDAR */}
             <div style={{ background: 'white', borderRadius: 16, padding: 20, boxShadow: '0 2px 10px rgba(0,0,0,.03)' }}>
-              <h3 style={{ margin: '0 0 14px 0', fontSize: 14, fontWeight: 700, color: '#111827' }}>Submission Calendar</h3>
+              <h3 style={{ margin: '0 0 14px 0', fontSize: 14, fontWeight: 700, color: '#111827' }}>Report Obligations</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {calendarItems.map((ci) => (
-                  <div key={ci.date} style={{
+                {reports.slice(0, 4).map((r) => (
+                  <div key={r.id} style={{
                     display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: 8,
-                    border: '1px solid #F0F0F0', borderLeft: ci.status === 'Completed' ? '3px solid #16A34A' : ci.status === 'Pending' ? '3px solid #F59E0B' : '3px solid #D1D5DB',
+                    border: '1px solid #F0F0F0', borderLeft: r.status === 'Submitted' ? '3px solid #16A34A' : r.status === 'Pending Review' ? '3px solid #F59E0B' : '3px solid #D1D5DB',
                   }}>
                     <div style={{ textAlign: 'center', minWidth: 44 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{ci.date.split(' ')[1]}</div>
-                      <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF' }}>{ci.date.split(' ')[0]}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: '#111827' }}>{r.count}</div>
+                      <div style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF' }}>complaints</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1F2937' }}>{ci.title}</div>
-                      <div style={{ fontSize: 10, color: ci.status === 'Completed' ? '#16A34A' : ci.status === 'Pending' ? '#F59E0B' : '#9CA3AF' }}>{ci.status}</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#1F2937' }}>{r.type}</div>
+                      <div style={{ fontSize: 10, color: r.status === 'Submitted' ? '#16A34A' : r.status === 'Pending Review' ? '#F59E0B' : '#9CA3AF' }}>{r.status}</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* AUDIT TRAIL */}
             <div style={{ background: 'white', borderRadius: 16, padding: 20, boxShadow: '0 2px 10px rgba(0,0,0,.03)' }}>
-              <h3 style={{ margin: '0 0 14px 0', fontSize: 14, fontWeight: 700, color: '#111827' }}>Audit Trail</h3>
-              <div style={{ position: 'relative' }}>
+              <h3 style={{ margin: '0 0 14px 0', fontSize: 14, fontWeight: 700, color: '#111827' }}>Flagged Complaints</h3>
+              <div style={{ position: 'relative', maxHeight: 200, overflowY: 'auto' }}>
                 <div style={{ position: 'absolute', left: 7, top: 0, bottom: 0, width: 2, background: '#E5E7EB' }} />
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingLeft: 24 }}>
-                  {auditTrail.map((entry, i) => (
-                    <div key={i} style={{ position: 'relative' }}>
-                      <div style={{ position: 'absolute', left: -19, top: 4, width: 8, height: 8, borderRadius: '50%', background: '#3B82F6' }} />
-                      <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 2 }}>{entry.time}</div>
-                      <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.4 }}>{entry.action}</div>
+                  {selectedReport?.complaints.slice(0, 6).map((c, _i) => (
+                    <div key={c.id} style={{ position: 'relative' }}>
+                      <div style={{ position: 'absolute', left: -19, top: 4, width: 8, height: 8, borderRadius: '50%', background: '#DC2626' }} />
+                      <div style={{ fontSize: 10, fontWeight: 700, color: '#9CA3AF', marginBottom: 2 }}>{c.id}</div>
+                      <div style={{ fontSize: 11, color: '#374151', lineHeight: 1.4 }}>{c.complaint_type || c.raw_text.slice(0, 80)}</div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* PREVIOUS REPORTS */}
             <div style={{ background: 'white', borderRadius: 16, padding: 20, boxShadow: '0 2px 10px rgba(0,0,0,.03)' }}>
-              <h3 style={{ margin: '0 0 14px 0', fontSize: 14, fontWeight: 700, color: '#111827' }}>Previous Reports</h3>
+              <h3 style={{ margin: '0 0 14px 0', fontSize: 14, fontWeight: 700, color: '#111827' }}>Summary</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {previousReports.map((pr) => (
-                  <div key={pr.month} style={{
+                {reports.slice(0, 4).map((r) => (
+                  <div key={r.id} style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: 12, borderRadius: 10, border: '1px solid #F0F0F0',
                   }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{pr.month} Monthly Report</div>
-                      <div style={{ fontSize: 10, color: '#9CA3AF' }}>{pr.count} complaints · {pr.status}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: '#1F2937' }}>{r.type}</div>
+                      <div style={{ fontSize: 10, color: '#9CA3AF' }}>{r.count} complaints · {r.status}</div>
                     </div>
-                    <span style={{ padding: '2px 10px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: '#DCFCE7', color: '#16A34A' }}>✓</span>
+                    <span style={{ padding: '2px 10px', borderRadius: 8, fontSize: 10, fontWeight: 600, background: riskColors[r.risk]?.bg ?? '#DCFCE7', color: riskColors[r.risk]?.text ?? '#16A34A' }}>{r.risk}</span>
                   </div>
                 ))}
               </div>
             </div>
-
           </div>
         </div>
       </div>

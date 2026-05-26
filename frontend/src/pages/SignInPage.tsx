@@ -6,7 +6,7 @@ import { useAuth } from '../auth/AuthContext'
 import type { UserRole } from '../types/complaint'
 
 function redirectFor(role: string) {
-  return role === 'SUPERVISOR' ? '/app/supervisor' : '/app/queue'
+  return role === 'SUPERVISOR' ? '/app/classic/supervisor' : '/app/classic/queue'
 }
 
 const rolesConfig: { role: UserRole; label: string; email: string; icon: ReactNode; description: string }[] = [

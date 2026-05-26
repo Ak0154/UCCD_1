@@ -18,10 +18,13 @@ import {
   AlertCircle,
   Check,
   LogOut,
-  ExternalLink
+  ExternalLink,
+  Loader2,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { api } from '../api/client'
+import type { Complaint as ApiComplaint } from '../types/complaint'
 
 interface TimelineEvent {
   status: string
@@ -31,18 +34,19 @@ interface TimelineEvent {
 
 interface Complaint {
   id: string
+  origId: string
   customer_id: string
   vip_customer: boolean
   regulatory_flag: boolean
-  channel: 'whatsapp' | 'email' | 'telegram'
+  channel: 'whatsapp' | 'email' | 'telegram' | string
   language: string
-  complaint_type: 'fraud' | 'billing' | 'kyc' | 'loans'
+  complaint_type: string
   severity: 'HIGH' | 'MEDIUM' | 'LOW'
   raw_text: string
   translated_text?: string
   status: 'queued' | 'new' | 'in_progress' | 'escalated' | 'resolved'
   assigned_to: string | null
-  sla_tier: 'HIGH' | 'REGULATORY' | 'MEDIUM' | 'NORMAL'
+  sla_tier: string
   sla_total_seconds: number
   sla_remaining_seconds: number
   deadline: string
@@ -60,245 +64,46 @@ interface Complaint {
   bot_slots: Record<string, string>
   ai_draft_response: string
   history: TimelineEvent[]
+  created_at: string
 }
 
-const INITIAL_COMPLAINTS: Complaint[] = [
-  {
-    id: 'COMP-8201',
-    customer_id: 'CUST-77492',
-    vip_customer: true,
-    regulatory_flag: true,
-    channel: 'telegram',
-    language: 'EN',
-    complaint_type: 'fraud',
-    severity: 'HIGH',
-    raw_text: "URGENT: I see a charge of $1,200.00 on my credit card from 'Paris-Luxury Goods' which I never made! I am currently travelling in Tokyo and my card is in my pocket. Block this immediately and reverse it! This is my main card.",
-    status: 'in_progress',
-    assigned_to: 'current_agent@omniresol.com',
-    sla_tier: 'REGULATORY',
-    sla_total_seconds: 7200,
-    sla_remaining_seconds: 1104, // ~18m 24s
-    deadline: '2026-05-25 21:42:24',
-    breach_probability: 0.89,
-    product_code: 'CARD-BLACK-VIP',
-    intent: 'unauthorized_transaction',
-    regulatory_obligation: 'Regulation E / FCBA Dispute',
-    type_confidence: 0.98,
-    emotion_arc: {
-      initial: 'Angry',
-      current: 'Angry',
-      trajectory: 'Neutral',
-      intensity: 9
-    },
-    bot_slots: {
-      merchant: 'Paris-Luxury Goods',
-      amount: '$1,200.00',
-      card_ending: '9902',
-      customer_location: 'Tokyo, JP'
-    },
-    ai_draft_response: "Dear Customer,\n\nWe have immediately blocked your Black VIP Credit Card ending in 9902 to prevent further unauthorized transactions. A provisional credit of $1,200.00 has been applied, and our fraud detection team is investigating the merchant 'Paris-Luxury Goods'.\n\nWe will expedite the shipment of a replacement card to your current location in Tokyo. If you require emergency cash, please contact our global VIP hotline.\n\nWarm regards,\nOmniResol Agent Team",
-    history: [
-      { status: 'queued', timestamp: '20:04:00', description: 'Complaint received via Telegram gateway' },
-      { status: 'new', timestamp: '20:05:15', description: 'AI categorized as Fraud and flagged for Regulatory Priority' },
-      { status: 'in_progress', timestamp: '20:10:00', description: 'Claimed by Agent' }
-    ]
-  },
-  {
-    id: 'COMP-5423',
-    customer_id: 'CUST-38190',
-    vip_customer: false,
-    regulatory_flag: false,
-    channel: 'whatsapp',
-    language: 'ES',
-    complaint_type: 'loans',
-    severity: 'MEDIUM',
-    raw_text: "Hola, solicité un aplazamiento de mi cuota mensual del préstamo personal hace una semana pero no he recibido respuesta. Mi fecha de pago es mañana y no quiero tener recargos por mora. Por favor ayúdenme.",
-    translated_text: "Hello, I requested a postponement of my monthly personal loan payment a week ago but have not received a response. My payment date is tomorrow and I do not want to have late fees. Please help me.",
-    status: 'new',
-    assigned_to: null,
-    sla_tier: 'MEDIUM',
-    sla_total_seconds: 14400,
-    sla_remaining_seconds: 5120, // ~1h 25m 20s
-    deadline: '2026-05-25 22:49:20',
-    breach_probability: 0.45,
-    product_code: 'LOAN-PERSONAL',
-    intent: 'repayment_deferral_request',
-    regulatory_obligation: 'Consumer Protection Act (ES)',
-    type_confidence: 0.92,
-    emotion_arc: {
-      initial: 'Anxious',
-      current: 'Anxious',
-      trajectory: 'Neutral',
-      intensity: 7
-    },
-    bot_slots: {
-      loan_id: 'LN-883011',
-      deferred_months: '1 month',
-      next_payment_due: '2026-05-26'
-    },
-    ai_draft_response: "Estimado Cliente,\n\nEntendemos su preocupación respecto a la cuota de su préstamo personal LN-883011. Hemos procesado una prórroga temporal de su pago de mañana por 30 días mientras nuestro equipo de préstamos formaliza el aplazamiento de su plan de pagos. No se aplicarán recargos ni intereses de demora durante este período.\n\nLe mantendremos informado.\n\nAtentamente,\nEquipo de OmniResol",
-    history: [
-      { status: 'queued', timestamp: '19:12:00', description: 'Complaint received via WhatsApp ES connector' },
-      { status: 'new', timestamp: '19:15:30', description: 'Automatic translation completed (ES -> EN) and assigned to General Queue' }
-    ]
-  },
-  {
-    id: 'COMP-9912',
-    customer_id: 'CUST-88301',
-    vip_customer: true,
-    regulatory_flag: false,
-    channel: 'email',
-    language: 'EN',
-    complaint_type: 'billing',
-    severity: 'MEDIUM',
-    raw_text: "I noticed a double charge on my statement from the ATM at 5th Avenue. It withdrew $200 once, but I see two separate line items of $200.50 each on my mobile app. Please check the ATM logs and refund the duplicate.",
-    status: 'queued',
-    assigned_to: null,
-    sla_tier: 'HIGH',
-    sla_total_seconds: 28800,
-    sla_remaining_seconds: 20160, // ~5h 36m
-    deadline: '2026-05-26 02:00:00',
-    breach_probability: 0.12,
-    product_code: 'ACC-SAVINGS',
-    intent: 'atm_duplicate_charge',
-    regulatory_obligation: 'Regulation E / Electronic Fund Transfers',
-    type_confidence: 0.94,
-    emotion_arc: {
-      initial: 'Frustrated',
-      current: 'Frustrated',
-      trajectory: 'Neutral',
-      intensity: 6
-    },
-    bot_slots: {
-      atm_location: '5th Avenue ATM #4',
-      amount: '$200.50',
-      transaction_date: '2026-05-24'
-    },
-    ai_draft_response: "Dear Customer,\n\nThank you for alerting us to the duplicate ATM withdrawal charge of $200.50 at our 5th Avenue ATM #4. We have initiated an ATM log audit.\n\nIn the meantime, we have credited a temporary refund of $200.50 to your savings account. If the log audit confirms a system error, this credit will be made permanent.\n\nWarm regards,\nOmniResol Agent Team",
-    history: [
-      { status: 'queued', timestamp: '17:44:00', description: 'Complaint received via support@omniresol.tech' }
-    ]
-  },
-  {
-    id: 'COMP-2109',
-    customer_id: 'CUST-10492',
-    vip_customer: false,
-    regulatory_flag: true,
-    channel: 'email',
-    language: 'EN',
-    complaint_type: 'kyc',
-    severity: 'LOW',
-    raw_text: "My account has been restricted because you say my ID is expired. I uploaded my new passport 3 days ago, but the restriction is still active. I can't pay my bills! This is unacceptable, please review my upload immediately.",
-    status: 'in_progress',
-    assigned_to: 'other_agent@omniresol.com',
-    sla_tier: 'REGULATORY',
-    sla_total_seconds: 43200,
-    sla_remaining_seconds: 34500, // ~9h 35m
-    deadline: '2026-05-26 06:00:00',
-    breach_probability: 0.05,
-    product_code: 'ACC-CHECKING',
-    intent: 'kyc_document_pending',
-    regulatory_obligation: 'BSA Section 326 / KYC Regulations',
-    type_confidence: 0.96,
-    emotion_arc: {
-      initial: 'Frustrated',
-      current: 'Frustrated',
-      trajectory: 'Neutral',
-      intensity: 7
-    },
-    bot_slots: {
-      document_type: 'Passport',
-      upload_date: '2026-05-22',
-      restriction_status: 'Restricted'
-    },
-    ai_draft_response: "Dear Customer,\n\nWe sincerely apologize for the delay in reviewing your passport document. We have verified your uploaded document against our KYC criteria and have manually approved your profile.\n\nThe restriction on your checking account has been lifted, and full transactions are now enabled.\n\nWarm regards,\nOmniResol Agent Team",
-    history: [
-      { status: 'queued', timestamp: '15:20:00', description: 'Complaint received' },
-      { status: 'new', timestamp: '15:22:00', description: 'System flagged account restriction block' },
-      { status: 'in_progress', timestamp: '15:30:00', description: 'Assigned to Agent Sarah' }
-    ]
-  },
-  {
-    id: 'COMP-1052',
-    customer_id: 'CUST-99201',
-    vip_customer: false,
-    regulatory_flag: false,
-    channel: 'whatsapp',
-    language: 'EN',
-    complaint_type: 'billing',
-    severity: 'HIGH',
-    raw_text: "My credit limit was decreased from $10,000 to $2,000 without any warning. This caused my auto-payment for my rent to fail. I want this limit restored immediately, my credit score is excellent and I have never missed a payment!",
-    status: 'escalated',
-    assigned_to: 'current_agent@omniresol.com',
-    sla_tier: 'HIGH',
-    sla_total_seconds: 7200,
-    sla_remaining_seconds: 0, // Breached
-    deadline: '2026-05-25 19:27:00',
-    breach_probability: 1.0,
-    product_code: 'CARD-PLATINUM',
-    intent: 'credit_limit_reduction_dispute',
-    regulatory_obligation: 'CARD Act notice requirements',
-    type_confidence: 0.90,
-    emotion_arc: {
-      initial: 'Irate',
-      current: 'Irate',
-      trajectory: 'Neutral',
-      intensity: 10
-    },
-    bot_slots: {
-      current_limit: '$2,000.00',
-      previous_limit: '$10,000.00',
-      credit_score: '780'
-    },
-    ai_draft_response: "Dear Customer,\n\nWe apologize for the sudden credit limit reduction. After escalating this to our Credit Risk Underwriting Team, we have reviewed your excellent payment history and credit score of 780. The decrease was due to an automated risk system recalculation which has now been overridden.\n\nWe have successfully restored your credit limit of $10,000.00.\n\nWarm regards,\nOmniResol Agent Team",
-    history: [
-      { status: 'queued', timestamp: '17:27:00', description: 'Complaint received via WhatsApp' },
-      { status: 'new', timestamp: '17:30:00', description: 'Assigned to General Queue' },
-      { status: 'in_progress', timestamp: '18:15:00', description: 'Claimed by Agent' },
-      { status: 'escalated', timestamp: '19:27:00', description: 'SLA Breached. Automatic escalation to Supervisor and Risk Desk' }
-    ]
-  },
-  {
-    id: 'COMP-4011',
-    customer_id: 'CUST-40291',
-    vip_customer: false,
-    regulatory_flag: false,
-    channel: 'email',
-    language: 'EN',
-    complaint_type: 'billing',
-    severity: 'LOW',
-    raw_text: "I was charged a $15 monthly maintenance fee on my Basic checking account. I was told when I opened it that if I have direct deposit, the fee is waived. I have direct deposit setup. Refund this fee please.",
-    status: 'resolved',
-    assigned_to: 'current_agent@omniresol.com',
-    sla_tier: 'NORMAL',
-    sla_total_seconds: 28800,
-    sla_remaining_seconds: 12400, // not active countdown
-    deadline: '2026-05-25 15:44:00',
-    breach_probability: 0.0,
-    product_code: 'ACC-CHECKING',
-    intent: 'fee_waiver_dispute',
-    regulatory_obligation: 'Truth in Savings Act disclosures',
-    type_confidence: 0.95,
-    emotion_arc: {
-      initial: 'Frustrated',
-      current: 'Neutral',
-      trajectory: 'Positive',
-      intensity: 5
-    },
-    bot_slots: {
-      fee_amount: '$15.00',
-      fee_description: 'Monthly Maintenance Fee',
-      direct_deposit_active: 'True'
-    },
-    ai_draft_response: "Dear Customer,\n\nWe have investigated the monthly maintenance fee charged to your account. We confirmed that your direct deposit is active, which qualifies you for the fee waiver.\n\nWe have reversed the $15.00 fee, and it should reflect in your balance immediately. We apologize for the system error.\n\nWarm regards,\nOmniResol Agent Team",
-    history: [
-      { status: 'queued', timestamp: '11:44:00', description: 'Complaint received via email' },
-      { status: 'new', timestamp: '11:46:00', description: 'AI categorized as fee dispute' },
-      { status: 'in_progress', timestamp: '12:00:00', description: 'Assigned to Agent' },
-      { status: 'resolved', timestamp: '13:15:00', description: 'Resolved by Agent: fee refunded' }
-    ]
+function mapApiComplaint(c: ApiComplaint): Complaint {
+  const slaDeadline = c.sla_deadline ? new Date(c.sla_deadline).getTime() : Date.now() + 3600000
+  const slaTotal = c.sla_tier === 'HIGH' || c.sla_tier === 'REGULATORY' ? 7200 : 28800
+  const slaRemaining = Math.max(0, Math.round((slaDeadline - Date.now()) / 1000))
+  const isBreached = c.sla_breached
+  const effectiveRemaining = isBreached ? 0 : slaRemaining
+
+  return {
+    id: String(c.id).slice(0, 8),
+    origId: String(c.id),
+    customer_id: c.customer_id,
+    vip_customer: c.vip_customer ?? false,
+    regulatory_flag: c.regulatory_flag ?? false,
+    channel: c.channel as Complaint['channel'],
+    language: c.detected_language ?? c.language_code ?? 'EN',
+    complaint_type: c.complaint_type ?? 'unclassified',
+    severity: (c.priority_tier && c.priority_tier <= 2 ? 'HIGH' : c.priority_tier === 3 ? 'MEDIUM' : 'LOW') as Complaint['severity'],
+    raw_text: c.raw_text,
+    translated_text: c.translated_text ?? undefined,
+    status: c.status as Complaint['status'],
+    assigned_to: c.assigned_to ?? null,
+    sla_tier: c.sla_tier ?? 'NORMAL',
+    sla_total_seconds: slaTotal,
+    sla_remaining_seconds: effectiveRemaining,
+    deadline: c.sla_deadline ?? new Date(Date.now() + slaTotal * 1000).toISOString(),
+    breach_probability: c.breach_probability ?? 0,
+    product_code: c.product_code ?? '',
+    intent: c.intent ?? '',
+    regulatory_obligation: c.regulatory_obligation ?? '',
+    type_confidence: c.type_confidence ?? 0,
+    emotion_arc: (c.emotion_arc as Complaint['emotion_arc']) ?? { initial: 'Neutral', current: 'Neutral', trajectory: 'Neutral', intensity: 5 },
+    bot_slots: (c.bot_slots as Record<string, string>) ?? {},
+    ai_draft_response: c.ai_draft ?? '',
+    history: [],
+    created_at: c.created_at,
   }
-]
+}
 
 interface QueuePageProps {
   searchQuery?: string
@@ -313,7 +118,40 @@ export function QueuePage({ searchQuery: initialSearch = '', defaultStatus = 'my
   const isStandalone = searchParams.get('standalone') === 'true'
 
   // Main complaints state
-  const [complaints, setComplaints] = useState<Complaint[]>(INITIAL_COMPLAINTS)
+  const [complaints, setComplaints] = useState<Complaint[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState('')
+
+  // Fetch complaints from API
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true)
+        const [allRes, myQueueRes] = await Promise.all([
+          api.listComplaints({ limit: 50 }),
+          api.getMyQueue(50),
+        ])
+        const allComplaints = allRes.complaints.map(mapApiComplaint)
+        const myQueue = myQueueRes.complaints.map(mapApiComplaint)
+
+        // Merge deduplicated by id
+        const seen = new Set<string>()
+        const merged: Complaint[] = []
+        for (const c of [...myQueue, ...allComplaints]) {
+          if (!seen.has(c.id)) {
+            seen.add(c.id)
+            merged.push(c)
+          }
+        }
+        setComplaints(merged)
+      } catch (err) {
+        setFetchError(err instanceof Error ? err.message : 'Failed to load complaints')
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
 
   const initialFilter = useMemo(() => {
     if (defaultStatus === 'queued' || defaultStatus === 'new') return 'my_queue'
@@ -505,11 +343,12 @@ export function QueuePage({ searchQuery: initialSearch = '', defaultStatus = 'my
 
   // Handle Draft Save
   const handleSaveDraft = () => {
+    if (!selectedId) return
     setComplaints((prev) =>
       prev.map((c) => (c.id === selectedId ? { ...c, ai_draft_response: draftContent } : c))
     )
     setIsEditingDraft(false)
-    triggerToast('Draft response saved locally.')
+    triggerToast('Draft response saved.')
   }
 
   // Handle Copy Draft
@@ -519,104 +358,107 @@ export function QueuePage({ searchQuery: initialSearch = '', defaultStatus = 'my
   }
 
   // Action Buttons
-  const handleSendResponse = () => {
-    const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
-    setComplaints((prev) =>
-      prev.map((c) => {
-        if (c.id === selectedId) {
-          return {
-            ...c,
-            status: 'resolved',
-            ai_draft_response: draftContent,
-            history: [
-              ...c.history,
-              {
-                status: 'resolved',
-                timestamp: nowStr,
-                description: 'Agent responded to customer and marked resolved.'
-              }
-            ]
+  const handleSendResponse = async () => {
+    if (!selectedId || !activeComplaint) return
+    const complaintUuid = activeComplaint.origId ?? selectedId
+    try {
+      await api.respond(complaintUuid, draftContent)
+      const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
+      setComplaints((prev) =>
+        prev.map((c) => {
+          if (c.id === selectedId) {
+            return {
+              ...c,
+              status: 'resolved' as const,
+              ai_draft_response: draftContent,
+              history: [
+                ...c.history,
+                { status: 'resolved', timestamp: nowStr, description: 'Agent responded to customer and marked resolved.' }
+              ]
+            }
           }
-        }
-        return c
-      })
-    )
-    triggerToast(`Response sent for ${selectedId}! Marked resolved.`)
+          return c
+        })
+      )
+      triggerToast(`Response sent for ${selectedId}! Marked resolved.`)
+    } catch (err) {
+      triggerToast(`Error: ${err instanceof Error ? err.message : 'Failed to send response'}`)
+    }
   }
 
-  const handleConfirmEscalation = () => {
-    if (!selectedId) return
-    const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
-    
-    setComplaints((prev) =>
-      prev.map((c) => {
-        if (c.id === selectedId) {
-          const notesStr = escalateReason.trim() ? `. Reason: ${escalateReason.trim()}` : ''
-          return {
-            ...c,
-            status: 'escalated',
-            history: [
-              ...c.history,
-              {
-                status: 'escalated',
-                timestamp: nowStr,
-                description: `Manually escalated to ${escalateTeam} by Sarah Jenkins${notesStr}`
-              }
-            ]
+  const handleConfirmEscalation = async () => {
+    if (!selectedId || !activeComplaint) return
+    const complaintUuid = activeComplaint.origId ?? selectedId
+    try {
+      await api.updateStatus(complaintUuid, 'escalated')
+      const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
+      const notesStr = escalateReason.trim() ? `. Reason: ${escalateReason.trim()}` : ''
+      setComplaints((prev) =>
+        prev.map((c) => {
+          if (c.id === selectedId) {
+            return {
+              ...c,
+              status: 'escalated' as const,
+              history: [
+                ...c.history,
+                { status: 'escalated', timestamp: nowStr, description: `Manually escalated to ${escalateTeam}${notesStr}` }
+              ]
+            }
           }
-        }
-        return c
-      })
-    )
-    setShowEscalateModal(false)
-    triggerToast(`Complaint ${selectedId} escalated to ${escalateTeam}.`)
+          return c
+        })
+      )
+      setShowEscalateModal(false)
+      triggerToast(`Complaint ${selectedId} escalated to ${escalateTeam}.`)
+    } catch (err) {
+      triggerToast(`Error: ${err instanceof Error ? err.message : 'Failed to escalate'}`)
+    }
   }
 
-  const handleRequestInfo = () => {
-    const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
-    setComplaints((prev) =>
-      prev.map((c) => {
-        if (c.id === selectedId) {
-          return {
-            ...c,
-            history: [
-              ...c.history,
-              {
-                status: 'info_requested',
-                timestamp: nowStr,
-                description: 'System dispatched request for additional documents/verification.'
-              }
-            ]
+  const handleRequestInfo = async () => {
+    if (!selectedId || !activeComplaint) return
+    const complaintUuid = activeComplaint.origId ?? selectedId
+    try {
+      await api.requestDetails(complaintUuid)
+      const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
+      setComplaints((prev) =>
+        prev.map((c) => {
+          if (c.id === selectedId) {
+            return {
+              ...c,
+              history: [
+                ...c.history,
+                { status: 'info_requested', timestamp: nowStr, description: 'System dispatched request for additional documents/verification.' }
+              ]
+            }
           }
-        }
-        return c
-      })
-    )
-    triggerToast(`Additional info requested from customer for ${selectedId}.`)
+          return c
+        })
+      )
+      triggerToast(`Additional info requested from customer for ${selectedId}.`)
+    } catch (err) {
+      triggerToast(`Error: ${err instanceof Error ? err.message : 'Failed to request info'}`)
+    }
   }
 
-  const handleMarkResolved = () => {
-    const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
-    setComplaints((prev) =>
-      prev.map((c) => {
-        if (c.id === selectedId) {
-          return {
-            ...c,
-            status: 'resolved',
-            history: [
-              ...c.history,
-              {
-                status: 'resolved',
-                timestamp: nowStr,
-                description: 'Marked resolved by agent.'
-              }
-            ]
+  const handleMarkResolved = async () => {
+    if (!selectedId || !activeComplaint) return
+    const complaintUuid = activeComplaint.origId ?? selectedId
+    try {
+      await api.respond(complaintUuid, activeComplaint.ai_draft_response || 'Resolved by agent.')
+      const nowStr = new Date().toLocaleTimeString('en-US', { hour12: false })
+      setComplaints((prev) =>
+        prev.map((c) => {
+          if (c.id === selectedId) {
+            return { ...c, status: 'resolved' as const, history: [...c.history, { status: 'resolved', timestamp: nowStr, description: 'Marked resolved by agent.' }] }
           }
-        }
-        return c
-      })
-    )
-    triggerToast(`Complaint ${selectedId} marked resolved.`)
+          return c
+        })
+      )
+      triggerToast(`Complaint ${selectedId} marked resolved.`)
+    } catch (err) {
+      triggerToast(`Error: ${err instanceof Error ? err.message : 'Failed to resolve'}`)
+    }
   }
 
   // Channel UI helpers
@@ -708,7 +550,29 @@ export function QueuePage({ searchQuery: initialSearch = '', defaultStatus = 'my
   return (
     <div className="relative flex h-screen w-full overflow-hidden bg-dash-bg font-sans antialiased text-dash-text justify-center">
       <div className="flex h-full w-full max-w-[1600px] overflow-hidden">
-      
+
+      {/* LOADING / ERROR STATES */}
+      {loading && (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="flex flex-col items-center gap-3 text-dash-text-muted">
+            <Loader2 className="h-8 w-8 animate-spin text-dash-primary" />
+            <span className="text-sm">Loading complaints...</span>
+          </div>
+        </div>
+      )}
+
+      {fetchError && !loading && (
+        <div className="flex h-full w-full items-center justify-center">
+          <div className="flex flex-col items-center gap-3 rounded-lg border border-dash-error/30 bg-dash-error/10 p-6 text-center">
+            <AlertCircle className="h-8 w-8 text-dash-error" />
+            <span className="text-sm text-dash-error">{fetchError}</span>
+            <button onClick={() => window.location.reload()} className="rounded bg-dash-error/20 px-3 py-1 text-xs font-semibold text-dash-error hover:bg-dash-error/30 cursor-pointer">Retry</button>
+          </div>
+        </div>
+      )}
+
+      {!loading && !fetchError && (<>
+
       {/* TOAST NOTIFICATION */}
       {showToast && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-lg border border-dash-primary/30 bg-dash-surface-lowest/90 px-4 py-3 text-sm text-dash-text shadow-2xl backdrop-blur-md transition-all duration-300 violet-glow animate-bounce">
@@ -814,7 +678,7 @@ export function QueuePage({ searchQuery: initialSearch = '', defaultStatus = 'my
           {/* Action to switch routes (Supervisor Page for supervisor role, etc.) */}
           {user?.role === 'SUPERVISOR' && (
             <button
-              onClick={() => navigate('/app/supervisor')}
+              onClick={() => navigate('/app/classic/supervisor')}
               className="flex items-center justify-center gap-1.5 rounded-md border border-dash-border py-1 px-1.5 text-center text-[10px] font-semibold text-dash-primary hover:bg-dash-primary/10 hover:text-white transition-colors cursor-pointer"
             >
               <TrendingUp className="h-3 w-3 flex-shrink-0" />
@@ -1032,7 +896,7 @@ export function QueuePage({ searchQuery: initialSearch = '', defaultStatus = 'my
                   <span className="font-mono text-base font-bold text-white tracking-tight">{activeComplaint.id}</span>
                   {!isStandalone && (
                     <button
-                      onClick={() => window.open(`/app/queue?id=${activeComplaint.id}&standalone=true`, `complaint_${activeComplaint.id}`, 'width=1200,height=900,status=no,menubar=no,toolbar=no')}
+                      onClick={() => window.open(`/app/classic/queue?id=${activeComplaint.id}&standalone=true`, `complaint_${activeComplaint.id}`, 'width=1200,height=900,status=no,menubar=no,toolbar=no')}
                       className="text-dash-text-muted hover:text-dash-primary transition-colors cursor-pointer"
                       title="Open in new standalone window"
                     >
@@ -1405,10 +1269,11 @@ export function QueuePage({ searchQuery: initialSearch = '', defaultStatus = 'my
           </div>
         </main>
       )}
+      </>)}
       </div>
 
       {/* ESCALATION MODAL */}
-      {showEscalateModal && (
+      {!loading && !fetchError && showEscalateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="w-full max-w-md rounded-xl border border-dash-border bg-dash-surface-lowest p-6 shadow-2xl glass-card">
             

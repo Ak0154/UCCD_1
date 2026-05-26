@@ -1,5 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AppSidebar } from '../layout/AppSidebar'
+import { api } from '../api/client'
+import type { Complaint, DashboardKpis, TrendPoint } from '../types/complaint'
+import { useAuth } from '../auth/AuthContext'
 
 const severityColors: Record<string, { bg: string; text: string; dot: string }> = {
   Critical: { bg: '#FEE2E2', text: '#DC2626', dot: '#DC2626' },
@@ -8,83 +11,79 @@ const severityColors: Record<string, { bg: string; text: string; dot: string }> 
   Low: { bg: '#DCFCE7', text: '#16A34A', dot: '#16A34A' },
 }
 
-const breaches = [
-  {
-    id: '#CNS-4924', priority: 'Critical',
-    customer: 'Customer 1043',
-    issue: 'UPI ₹65,000 debited but not credited',
-    timeLeftMin: 38, slaPercent: 92, slaColor: '#DC2626',
-    assigned: 'RS', assignedTeam: 'L2 Payments Team',
-    escalation: 'Auto Escalated', slaStatus: 'BREACH IMMINENT',
-  },
-  {
-    id: '#CNS-4918', priority: 'High',
-    customer: 'Customer 1029',
-    issue: 'Credit card duplicate charge ₹24,998',
-    timeLeftMin: 82, slaPercent: 74, slaColor: '#EA580C',
-    assigned: 'PM', assignedTeam: 'Cards Dispute Team',
-    escalation: 'Manual Review', slaStatus: 'AT RISK',
-  },
-  {
-    id: '#CNS-4915', priority: 'Medium',
-    customer: 'Customer 1051',
-    issue: 'NetBanking locked — urgent access needed',
-    timeLeftMin: 156, slaPercent: 55, slaColor: '#EA580C',
-    assigned: 'NG', assignedTeam: 'Tech Support',
-    escalation: 'Auto Escalated', slaStatus: 'WATCHING',
-  },
-  {
-    id: '#CNS-4911', priority: 'High',
-    customer: 'Customer 1037',
-    issue: 'FD maturity ₹2,50,000 not credited — 5 days',
-    timeLeftMin: 210, slaPercent: 42, slaColor: '#EA580C',
-    assigned: 'AK', assignedTeam: 'Deposits Team',
-    escalation: 'Manual Review', slaStatus: 'WATCHING',
-  },
-  {
-    id: '#CNS-4907', priority: 'Low',
-    customer: 'Customer 1062',
-    issue: 'Mobile number update pending — 10 days',
-    timeLeftMin: 420, slaPercent: 18, slaColor: '#22C55E',
-    assigned: 'PM', assignedTeam: 'KYC Team',
-    escalation: 'Manual Review', slaStatus: 'ON TRACK',
-  },
-  {
-    id: '#CNS-4903', priority: 'Medium',
-    customer: 'Customer 1048',
-    issue: 'Auto-debit insurance without consent — ₹450/mo',
-    timeLeftMin: 295, slaPercent: 32, slaColor: '#22C55E',
-    assigned: 'RS', assignedTeam: 'Insurance Desk',
-    escalation: 'Auto Escalated', slaStatus: 'WATCHING',
-  },
-  {
-    id: '#CNS-4899', priority: 'High',
-    customer: 'Customer 1012',
-    issue: 'Gold loan ornaments not returned after closure',
-    timeLeftMin: 65, slaPercent: 78, slaColor: '#EA580C',
-    assigned: 'AK', assignedTeam: 'L2 Loans Team',
-    escalation: 'Auto Escalated', slaStatus: 'AT RISK',
-  },
-]
+function getSlaSeverityColor(pct: number) {
+  if (pct >= 90) return '#DC2626'
+  if (pct >= 70) return '#EA580C'
+  if (pct >= 50) return '#F59E0B'
+  return '#22C55E'
+}
 
-const pills = ['All', 'Critical', 'High', 'Medium', 'Low', 'Auto Escalated', 'Manual Review']
+function computeSlaInfo(c: Complaint) {
+  const now = Date.now()
+  const created = new Date(c.created_at).getTime()
+  const deadline = c.sla_deadline ? new Date(c.sla_deadline).getTime() : null
+  const totalWindow = deadline ? deadline - created : 0
+  const elapsed = now - created
+  const slaPercent = totalWindow > 0 ? Math.min(100, Math.round((elapsed / totalWindow) * 100)) : 0
+  const slaColor = getSlaSeverityColor(slaPercent)
+  const timeLeftMs = deadline ? deadline - now : 0
+  const timeLeftMin = Math.max(0, Math.ceil(timeLeftMs / 60000))
+  const hoursLeft = Math.ceil(timeLeftMin / 60)
+  const timeLabel = c.sla_breached
+    ? 'Breached'
+    : timeLeftMin < 60
+      ? `${timeLeftMin}m left`
+      : `${hoursLeft}h left`
 
-const trends = [
-  { day: 'Mon', val: 28 },
-  { day: 'Tue', val: 22 },
-  { day: 'Wed', val: 35 },
-  { day: 'Thu', val: 18 },
-  { day: 'Fri', val: 42 },
-  { day: 'Sat', val: 15 },
-  { day: 'Sun', val: 8 },
-]
+  let slaStatus = 'ON TRACK'
+  if (c.sla_breached) slaStatus = 'BREACHED'
+  else if (slaPercent >= 95) slaStatus = 'BREACH IMMINENT'
+  else if (slaPercent >= 75) slaStatus = 'AT RISK'
+  else if (slaPercent >= 50) slaStatus = 'WATCHING'
 
-const riskCategories = [
-  { name: 'UPI Failures', pct: 42, color: '#DC2626' },
-  { name: 'NetBanking', pct: 27, color: '#EA580C' },
-  { name: 'Cards', pct: 18, color: '#3B82F6' },
-  { name: 'Loans', pct: 13, color: '#16A34A' },
-]
+  return { slaPercent, slaColor, timeLabel, slaStatus, timeLeftMin }
+}
+
+function getInitials(assigned: string | null | undefined) {
+  if (!assigned) return '??'
+  const parts = assigned.split(/[@.]/)
+  const name = parts[0] || assigned
+  return name.slice(0, 2).toUpperCase()
+}
+
+interface BreachRow {
+  id: string
+  complaint: Complaint
+  priority: string
+  customer: string
+  issue: string
+  slaPercent: number
+  slaColor: string
+  timeLabel: string
+  timeLeftMin: number
+  assigned: string
+  escalation: string
+  slaStatus: string
+}
+
+function makeBreachRow(c: Complaint): BreachRow {
+  const info = computeSlaInfo(c)
+  const priority = c.sla_tier || (c.priority_tier !== undefined ? `T${c.priority_tier}` : 'Medium')
+  return {
+    id: String(c.id).slice(0, 8),
+    complaint: c,
+    priority,
+    customer: c.customer_id,
+    issue: (c.raw_text || '').length > 55 ? c.raw_text!.slice(0, 55) + '…' : (c.raw_text || ''),
+    slaPercent: info.slaPercent,
+    slaColor: info.slaColor,
+    timeLabel: info.timeLabel,
+    timeLeftMin: info.timeLeftMin,
+    assigned: getInitials(c.assigned_to),
+    escalation: c.status === 'escalated' ? 'Auto Escalated' : 'Manual Review',
+    slaStatus: info.slaStatus,
+  }
+}
 
 function KpiCard({ title, value, badge, badgeBg, badgeColor }: {
   title: string; value: string; badge: string; badgeBg: string; badgeColor: string
@@ -112,27 +111,33 @@ function KpiCard({ title, value, badge, badgeBg, badgeColor }: {
   )
 }
 
-function TrendChart() {
+function TrendChart({ trends }: { trends: TrendPoint[] }) {
   const h = 100
   const w = 600
   const pad = 24
-  const maxVal = 50
+  const maxVal = Math.max(...trends.map((t) => t.count), 10)
   const chartW = w - pad * 2
-  const step = chartW / (trends.length - 1)
+  const step = trends.length > 1 ? chartW / (trends.length - 1) : chartW
 
-  const points = trends.map((t, i) => ({
-    x: pad + i * step,
-    y: pad + (h - pad * 2) * (1 - t.val / maxVal),
-    val: t.val,
-    day: t.day,
-  }))
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+  const points = trends.map((t, i) => {
+    const d = new Date(t.date)
+    return {
+      x: pad + (trends.length === 1 ? chartW / 2 : i * step),
+      y: pad + (h - pad * 2) * (1 - t.count / maxVal),
+      val: t.count,
+      day: dayLabels[d.getDay()],
+    }
+  })
 
   const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
   const areaD = lineD + ` L ${points[points.length - 1].x} ${h - pad} L ${points[0].x} ${h - pad} Z`
 
+  const yTicks = [0, Math.round(maxVal * 0.25), Math.round(maxVal * 0.5), Math.round(maxVal * 0.75), maxVal]
+
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet" style={{ width: '100%', height: 'auto' }}>
-      {[0, 12.5, 25, 37.5, 50].map((v) => {
+      {yTicks.map((v) => {
         const y = pad + (h - pad * 2) * (1 - v / maxVal)
         return (
           <g key={v}>
@@ -142,13 +147,13 @@ function TrendChart() {
         )
       })}
       {points.map((p) => (
-        <text key={p.day} x={p.x} y={h - 4} textAnchor="middle" fontSize="9" fill="#9CA3AF">{p.day}</text>
+        <text key={p.day + p.x} x={p.x} y={h - 4} textAnchor="middle" fontSize="9" fill="#9CA3AF">{p.day}</text>
       ))}
       <path d={lineD} fill="none" stroke="#3B82F6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <path d={areaD} fill="url(#blueGrad)" />
       {points.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r={p.val >= 30 ? 4 : 2.5}
-          fill={p.val >= 30 ? '#DC2626' : '#3B82F6'} stroke="white" strokeWidth="1.5" />
+        <circle key={i} cx={p.x} cy={p.y} r={p.val >= (maxVal * 0.6) ? 4 : 2.5}
+          fill={p.val >= (maxVal * 0.6) ? '#DC2626' : '#3B82F6'} stroke="white" strokeWidth="1.5" />
       ))}
       <defs>
         <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
@@ -160,9 +165,135 @@ function TrendChart() {
   )
 }
 
+function LoadingSpinner() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', flexDirection: 'column', gap: 16,
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: '50%',
+        border: '3px solid #E5E7EB', borderTopColor: '#3B82F6',
+        animation: 'spin 0.8s linear infinite',
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <span style={{ fontSize: 14, color: '#6B7280', fontWeight: 500 }}>Loading SLA data…</span>
+    </div>
+  )
+}
+
+function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      height: '100vh', flexDirection: 'column', gap: 16,
+    }}>
+      <div style={{
+        width: 48, height: 48, borderRadius: '50%', background: '#FEE2E2',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </div>
+      <span style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>Failed to load data</span>
+      <span style={{ fontSize: 13, color: '#6B7280', maxWidth: 360, textAlign: 'center' }}>{message}</span>
+      <button type="button" onClick={onRetry}
+        style={{
+          padding: '8px 24px', borderRadius: 8, background: '#3B82F6', color: 'white',
+          border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+        }}
+      >Retry</button>
+    </div>
+  )
+}
+
 export function SlaBreaches() {
+  useAuth()
+
+  const [breaches, setBreaches] = useState<BreachRow[]>([])
+  const [kpis, setKpis] = useState<DashboardKpis | null>(null)
+  const [trends, setTrends] = useState<TrendPoint[]>([])
+  const [riskCategories, setRiskCategories] = useState<{ name: string; pct: number; color: string }[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const [filter, setFilter] = useState('All')
-  const [selectedId, setSelectedId] = useState('#CNS-4924')
+  const [selectedId, setSelectedId] = useState('')
+
+  const catColors = ['#DC2626', '#EA580C', '#3B82F6', '#16A34A', '#8B5CF6', '#EC4899', '#14B8A6', '#F59E0B']
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [complaintsRes, kpisRes, trendsRes] = await Promise.all([
+        api.listComplaints({ sla_breached: true, limit: 50 }),
+        api.getKpis(),
+        api.getTrends(7),
+      ])
+
+      const rows = (complaintsRes.complaints || []).map(makeBreachRow)
+      setBreaches(rows)
+      if (rows.length > 0) setSelectedId(rows[0].id)
+
+      setKpis(kpisRes)
+
+      const trendData = trendsRes.daily_volume || []
+      const sorted = [...trendData].sort((a, b) => a.date.localeCompare(b.date))
+      setTrends(sorted)
+
+      const typeCounts: Record<string, number> = {}
+      rows.forEach((r) => {
+        const key = r.priority || 'Other'
+        typeCounts[key] = (typeCounts[key] || 0) + 1
+      })
+      const total = rows.length || 1
+      const categories = Object.entries(typeCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 8)
+        .map(([name, count], i) => ({
+          name,
+          pct: Math.round((count / total) * 100),
+          color: catColors[i % catColors.length],
+        }))
+      setRiskCategories(categories)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'An unknown error occurred'
+      setError(msg)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <AppSidebar activeItem="SLA Breaches" />
+        <div style={{ flex: 1, minWidth: 0, background: '#F5F6FA' }}>
+          <LoadingSpinner />
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        <AppSidebar activeItem="SLA Breaches" />
+        <div style={{ flex: 1, minWidth: 0, background: '#F5F6FA' }}>
+          <ErrorState message={error} onRetry={fetchData} />
+        </div>
+      </div>
+    )
+  }
+
+  const priorityValues = [...new Set(breaches.map((b) => b.priority))]
+  const pills = ['All', ...priorityValues, 'Auto Escalated', 'Manual Review']
 
   const filtered = filter === 'All'
     ? breaches
@@ -171,6 +302,8 @@ export function SlaBreaches() {
       : breaches.filter((b) => b.priority === filter)
 
   const selectedRow = breaches.find((b) => b.id === selectedId) ?? breaches[0]
+
+  const kpiValue = (val: number | undefined) => String(val ?? 0)
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -216,10 +349,10 @@ export function SlaBreaches() {
 
           {/* KPI CARDS */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 20 }}>
-            <KpiCard title="Critical Breaches" value="18" badge="↑ 6 since last hour" badgeBg="#FEE2E2" badgeColor="#EF4444" />
-            <KpiCard title="At Risk" value="42" badge="11 due within 2h" badgeBg="#FEF3C7" badgeColor="#F59E0B" />
-            <KpiCard title="Auto Escalated" value="27" badge="93% escalation success" badgeBg="#DCFCE7" badgeColor="#16A34A" />
-            <KpiCard title="Avg Breach Delay" value="2.8h" badge="Target: <1h" badgeBg="#E0E7FF" badgeColor="#4F46E5" />
+            <KpiCard title="Critical Breaches" value={kpiValue(kpis?.breached)} badge={`${kpiValue(kpis?.breached)} total`} badgeBg="#FEE2E2" badgeColor="#EF4444" />
+            <KpiCard title="At Risk" value={kpiValue(kpis?.sla_at_risk)} badge={`${kpiValue(kpis?.open)} open`} badgeBg="#FEF3C7" badgeColor="#F59E0B" />
+            <KpiCard title="Auto Escalated" value={kpiValue(kpis?.escalated)} badge={`${kpiValue(kpis?.resolution_rate)}% resolved`} badgeBg="#DCFCE7" badgeColor="#16A34A" />
+            <KpiCard title="Avg Breach Delay" value={`${kpiValue(kpis?.avg_resolution_hours)}h`} badge="Target: <1h" badgeBg="#E0E7FF" badgeColor="#4F46E5" />
           </div>
 
           {/* MAIN CONTENT */}
@@ -249,9 +382,9 @@ export function SlaBreaches() {
                     <button key={p} type="button" onClick={() => setFilter(p)}
                       style={{
                         height: 36, padding: '0 18px', borderRadius: 999,
-                        border: `1px solid ${isActive ? '#4F46E5' : '#E5E7EB'}`,
-                        background: isActive ? '#EEF2FF' : 'white',
-                        color: isActive ? '#4F46E5' : '#6B7280',
+                        border: `1px solid ${isActive ? '#2563EB' : '#E5E7EB'}`,
+                        background: isActive ? '#EFF6FF' : 'white',
+                        color: isActive ? '#1D4ED8' : '#6B7280',
                         fontSize: 12, fontWeight: 600, cursor: 'pointer',
                         whiteSpace: 'nowrap', transition: 'all .15s',
                       }}
@@ -260,97 +393,99 @@ export function SlaBreaches() {
                 })}
               </div>
 
-              {/* TABLE HEADER */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: '100px 80px 120px minmax(0, 1fr) 80px 60px 130px 90px 120px',
-                gap: 10, alignItems: 'center',
-                height: 50, padding: '0 24px',
-                background: '#FAFBFC', borderBottom: '1px solid #F0F0F0',
-                fontSize: 11, fontWeight: 600, letterSpacing: '.4px',
-                color: '#9CA3AF', textTransform: 'uppercase',
-              }}>
-                {['ID', 'Priority', 'Customer', 'Issue', 'Time Left', 'Assigned', 'Escalation', 'SLA Status', 'Actions'].map((h) => (
-                  <div key={h} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h}</div>
-                ))}
-              </div>
+              <div style={{ overflowX: 'auto' }}>
+                {/* TABLE HEADER */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '100px 80px 120px minmax(0, 1fr) 80px 60px 130px 90px 120px',
+                  gap: 10, alignItems: 'center',
+                  height: 50, padding: '0 24px',
+                  background: '#FAFBFC', borderBottom: '1px solid #F0F0F0',
+                  fontSize: 11, fontWeight: 600, letterSpacing: '.4px',
+                  color: '#9CA3AF', textTransform: 'uppercase',
+                  minWidth: 1000,
+                }}>
+                  {['ID', 'Priority', 'Customer', 'Issue', 'Time Left', 'Assigned', 'Escalation', 'SLA Status', 'Actions'].map((h) => (
+                    <div key={h} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h}</div>
+                  ))}
+                </div>
 
-              {/* TABLE ROWS */}
-              {filtered.map((b) => {
-                const isSelected = b.id === selectedId
-                const sev = severityColors[b.priority]
-                const hoursLeft = Math.ceil(b.timeLeftMin / 60)
-                const timeLabel = b.timeLeftMin < 60 ? `${b.timeLeftMin}m left` : `${hoursLeft}h left`
+                {/* TABLE ROWS */}
+                {filtered.map((b) => {
+                  const isSelected = b.id === selectedId
+                  const sev = severityColors[b.priority] ?? severityColors.Medium
 
-                return (
-                  <div key={b.id}
-                    onClick={() => setSelectedId(b.id)}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '100px 80px 120px minmax(0, 1fr) 80px 60px 130px 90px 120px',
-                      gap: 10, alignItems: 'center',
-                      padding: '13px 24px', borderBottom: '1px solid #F5F6FA',
-                      background: isSelected ? '#EFF6FF' : 'white',
-                      borderLeft: isSelected ? '3px solid #3B82F6' : '3px solid transparent',
-                      cursor: 'pointer', transition: 'background .1s',
-                    }}
-                  >
-                    <span style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace' }}>
-                      {b.id}
-                    </span>
+                  return (
+                    <div key={b.id}
+                      onClick={() => setSelectedId(b.id)}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '100px 80px 120px minmax(0, 1fr) 80px 60px 130px 90px 120px',
+                        gap: 10, alignItems: 'center',
+                        padding: '13px 24px', borderBottom: '1px solid #F5F6FA',
+                        background: isSelected ? '#EFF6FF' : 'white',
+                        borderLeft: isSelected ? '3px solid #3B82F6' : '3px solid transparent',
+                        cursor: 'pointer', transition: 'background .1s',
+                        minWidth: 1000,
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace' }}>
+                        {b.id}
+                      </span>
 
-                    <span style={{
-                      padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700,
-                      color: sev.text, background: sev.bg, whiteSpace: 'nowrap',
-                      width: 'fit-content',
-                    }}>{b.priority}</span>
+                      <span style={{
+                        padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700,
+                        color: sev.text, background: sev.bg, whiteSpace: 'nowrap',
+                        width: 'fit-content',
+                      }}>{b.priority}</span>
 
-                    <span style={{ fontSize: 12, fontWeight: 500, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {b.customer}
-                    </span>
+                      <span style={{ fontSize: 12, fontWeight: 500, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {b.customer}
+                      </span>
 
-                    <span style={{ fontSize: 12, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
-                      {b.issue}
-                    </span>
+                      <span style={{ fontSize: 12, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+                        {b.issue}
+                      </span>
 
-                    <div>
-                      <div style={{ height: 6, borderRadius: 999, background: '#F3F4F6', overflow: 'hidden', width: 80 }}>
-                        <div style={{
-                          height: '100%', width: `${b.slaPercent}%`,
-                          borderRadius: 999, background: b.slaColor,
-                        }} />
+                      <div>
+                        <div style={{ height: 6, borderRadius: 999, background: '#F3F4F6', overflow: 'hidden', width: 80 }}>
+                          <div style={{
+                            height: '100%', width: `${b.slaPercent}%`,
+                            borderRadius: 999, background: b.slaColor,
+                          }} />
+                        </div>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: b.slaColor, marginTop: 3 }}>{b.timeLabel}</div>
                       </div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: b.slaColor, marginTop: 3 }}>{timeLabel}</div>
+
+                      <span style={{
+                        width: 26, height: 26, borderRadius: '50%', background: '#EEF2FF',
+                        color: '#4F46E5', fontSize: 10, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>{b.assigned}</span>
+
+                      <span style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {b.escalation}
+                      </span>
+
+                      <span style={{
+                        fontSize: 10, fontWeight: 700,
+                        color: b.escalation === 'Auto Escalated' ? '#16A34A' : '#F59E0B',
+                      }}>{b.slaStatus}</span>
+
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button type="button" style={{
+                          padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                          background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer',
+                        }}>Escalate</button>
+                        <button type="button" style={{
+                          padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                          background: '#EFF6FF', color: '#3B82F6', border: 'none', cursor: 'pointer',
+                        }}>View</button>
+                      </div>
                     </div>
-
-                    <span style={{
-                      width: 26, height: 26, borderRadius: '50%', background: '#EEF2FF',
-                      color: '#4F46E5', fontSize: 10, fontWeight: 700,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>{b.assigned}</span>
-
-                    <span style={{ fontSize: 11, fontWeight: 500, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {b.assignedTeam}
-                    </span>
-
-                    <span style={{
-                      fontSize: 10, fontWeight: 700,
-                      color: b.escalation === 'Auto Escalated' ? '#16A34A' : '#F59E0B',
-                    }}>{b.slaStatus}</span>
-
-                    <div style={{ display: 'flex', gap: 6 }}>
-                      <button type="button" style={{
-                        padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600,
-                        background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer',
-                      }}>Escalate</button>
-                      <button type="button" style={{
-                        padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600,
-                        background: '#EFF6FF', color: '#3B82F6', border: 'none', cursor: 'pointer',
-                      }}>View</button>
-                    </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
 
             {/* GEN-AI ESCALATION INTELLIGENCE */}
@@ -369,7 +504,9 @@ export function SlaBreaches() {
                   </svg>
                 </div>
                 <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#111827' }}>Escalation Intelligence</h3>
-                <span style={{ fontSize: 10, color: '#9CA3AF', fontFamily: 'monospace', marginLeft: 'auto' }}>{selectedRow.id}</span>
+                {selectedRow && (
+                  <span style={{ fontSize: 10, color: '#9CA3AF', fontFamily: 'monospace', marginLeft: 'auto' }}>{selectedRow.id}</span>
+                )}
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -378,12 +515,34 @@ export function SlaBreaches() {
                     Breach Classification
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                    {['Payments', 'UPI', 'Critical', 'High Value'].map((t) => (
-                      <span key={t} style={{
-                        padding: '4px 12px', borderRadius: 12, background: '#EEF2FF',
-                        color: '#4F46E5', fontSize: 11, fontWeight: 600,
-                      }}>{t}</span>
-                    ))}
+                    {selectedRow && selectedRow.complaint ? (
+                      [
+                        selectedRow.complaint.complaint_type,
+                        selectedRow.priority,
+                        selectedRow.complaint.vip_customer ? 'VIP' : '',
+                        selectedRow.complaint.sla_tier
+                      ]
+                        .filter((t): t is string => typeof t === 'string' && t !== '')
+                        .map((t) => {
+                          const isVip = t.toLowerCase().includes('vip') || t.toLowerCase().includes('critical') || t.toLowerCase().includes('high');
+                          const bg = isVip ? '#FEF2F2' : '#EFF6FF';
+                          const color = isVip ? '#991B1B' : '#1E40AF';
+                          const border = isVip ? '1px solid #FEE2E2' : '1px solid #DBEAFE';
+                          return (
+                            <span key={t} style={{
+                              padding: '4px 12px', borderRadius: 12, background: bg,
+                              color: color, border: border, fontSize: 11, fontWeight: 600,
+                            }}>{t}</span>
+                          );
+                        })
+                    ) : (
+                      ['Payments', 'UPI', 'Critical', 'High Value'].map((t) => (
+                        <span key={t} style={{
+                          padding: '4px 12px', borderRadius: 12, background: '#EFF6FF',
+                          color: '#1E40AF', border: '1px solid #DBEAFE', fontSize: 11, fontWeight: 600,
+                        }}>{t}</span>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -397,7 +556,12 @@ export function SlaBreaches() {
                   <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                       <span style={{ color: '#6B7280' }}>Likelihood of escalation:</span>
-                      <span style={{ fontWeight: 700, color: '#DC2626' }}>Very High</span>
+                      {(() => {
+                        const prob = selectedRow?.complaint?.breach_probability ?? 0;
+                        const label = prob >= 0.8 ? 'Very High' : prob >= 0.5 ? 'High' : 'Medium';
+                        const color = prob >= 0.8 ? '#DC2626' : prob >= 0.5 ? '#EA580C' : '#3B82F6';
+                        return <span style={{ fontWeight: 700, color: color }}>{label}</span>;
+                      })()}
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
                       <span style={{ color: '#6B7280' }}>Risk of social media escalation:</span>
@@ -431,13 +595,13 @@ export function SlaBreaches() {
                   </ul>
                   <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
                     {[
-                      { label: 'Edit', bg: '#EEF2FF', color: '#4F46E5' },
-                      { label: 'Apply', bg: '#3B82F6', color: 'white' },
-                      { label: 'Regenerate', bg: '#E5E7EB', color: '#6B7280' },
+                      { label: 'Edit', bg: '#F3F4F6', color: '#374151', border: '1px solid #D1D5DB' },
+                      { label: 'Apply', bg: '#3B82F6', color: 'white', border: 'none' },
+                      { label: 'Regenerate', bg: '#E5E7EB', color: '#6B7280', border: 'none' },
                     ].map((btn) => (
                       <button key={btn.label} type="button"
                         style={{
-                          padding: '5px 14px', borderRadius: 6, border: 'none',
+                          padding: '5px 14px', borderRadius: 6, border: btn.border ?? 'none',
                           background: btn.bg, color: btn.color,
                           fontSize: 11, fontWeight: 600, cursor: 'pointer',
                         }}
@@ -460,7 +624,13 @@ export function SlaBreaches() {
               <h3 style={{ margin: '0 0 20px 0', fontSize: 15, fontWeight: 700, color: '#111827' }}>
                 SLA Breach Trend
               </h3>
-              <TrendChart />
+              {trends.length > 0 ? (
+                <TrendChart trends={trends} />
+              ) : (
+                <div style={{ height: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', fontSize: 13 }}>
+                  No trend data available
+                </div>
+              )}
             </div>
 
             {/* RISK CATEGORIES */}

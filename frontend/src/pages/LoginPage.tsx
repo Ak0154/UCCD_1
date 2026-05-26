@@ -8,7 +8,7 @@ const presets = [
 ]
 
 function redirectFor(role: string) {
-  return role === 'SUPERVISOR' ? '/app/supervisor' : '/app/queue'
+  return role === 'SUPERVISOR' ? '/app/classic/supervisor' : '/app/classic/queue'
 }
 
 export function LoginPage() {

@@ -1,37 +1,76 @@
 import { useAuth } from '../auth/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { api } from '../api/client'
 
-const NAV_CONFIG = [
+interface BadgeCounts {
+  complaints?: number
+  slaBreaches?: number
+  escalations?: number
+}
+
+interface NavItem {
+  name: string
+  icon: string
+  badgeKey?: 'complaints' | 'slaBreaches' | 'escalations'
+  href: string
+  roles: string[]
+}
+
+interface NavSection {
+  label: string
+  items: NavItem[]
+}
+
+const ALL_NAV_SECTIONS: NavSection[] = [
   {
     label: 'Overview',
     items: [
-      { name: 'Dashboard', icon: '◫', badge: undefined, href: '/app/dashboard' },
-      { name: 'All Complaints', icon: '📋', badge: { text: '24', color: '#DC2626' }, href: '/app/complaints' },
-      { name: 'SLA Breaches', icon: '⏱', badge: { text: '7', color: '#F59E0B' }, href: '/app/sla-breaches' },
+      { name: 'Dashboard', icon: '◫', href: '/app/dashboard', roles: ['AGENT', 'SUPERVISOR', 'COMPLIANCE'] },
+      { name: 'All Complaints', icon: '📋', badgeKey: 'complaints', href: '/app/complaints', roles: ['AGENT', 'SUPERVISOR', 'COMPLIANCE'] },
+      { name: 'SLA Breaches', icon: '⏱', badgeKey: 'slaBreaches', href: '/app/sla-breaches', roles: ['SUPERVISOR', 'COMPLIANCE'] },
     ],
   },
   {
     label: 'Management',
     items: [
-      { name: '360° View', icon: '🔍', badge: undefined, href: '/app/360-view' },
-      { name: 'Escalations', icon: '⬆', badge: { text: '3', color: '#DC2626' }, href: '/app/escalations' },
-      { name: 'Duplicates', icon: '⧉', badge: undefined, href: '/app/duplicates' },
-      { name: 'AI Drafts', icon: '✨', badge: undefined, href: '/app/drafts' },
+      { name: '360° View', icon: '🔍', href: '/app/360-view', roles: ['AGENT', 'SUPERVISOR', 'COMPLIANCE'] },
+      { name: 'Escalations', icon: '⬆', badgeKey: 'escalations', href: '/app/escalations', roles: ['AGENT', 'SUPERVISOR', 'COMPLIANCE'] },
+      { name: 'Duplicates', icon: '⧉', href: '/app/duplicates', roles: ['SUPERVISOR', 'COMPLIANCE'] },
+      { name: 'AI Drafts', icon: '✨', href: '/app/drafts', roles: ['AGENT', 'SUPERVISOR'] },
     ],
   },
   {
     label: 'Analytics',
     items: [
-      { name: 'Trends', icon: '📈', badge: undefined, href: '/app/trends' },
-      { name: 'Root Cause', icon: '🌳', badge: undefined, href: '/app/root-cause' },
-      { name: 'Regulatory Reports', icon: '🛡', badge: undefined, href: '/app/regulatory' },
+      { name: 'Trends', icon: '📈', href: '/app/trends', roles: ['SUPERVISOR', 'COMPLIANCE'] },
+      { name: 'Root Cause', icon: '🌳', href: '/app/root-cause', roles: ['SUPERVISOR', 'COMPLIANCE'] },
+      { name: 'Regulatory Reports', icon: '🛡', href: '/app/regulatory', roles: ['SUPERVISOR', 'COMPLIANCE'] },
     ],
   },
 ]
 
 export function AppSidebar({ activeItem }: { activeItem: string }) {
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [badges, setBadges] = useState<BadgeCounts>({})
+
+  const role = user?.role ?? 'AGENT'
+
+  useEffect(() => {
+    api.getKpis().then(kpis => {
+      setBadges({
+        complaints: kpis.open,
+        slaBreaches: kpis.breached,
+        escalations: kpis.escalated,
+      })
+    }).catch(() => {})
+  }, [])
+
+  const navSections: NavSection[] = ALL_NAV_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => item.roles.includes(role)),
+  })).filter(section => section.items.length > 0)
 
   return (
     <aside
@@ -63,13 +102,14 @@ export function AppSidebar({ activeItem }: { activeItem: string }) {
       </div>
 
       <nav style={{ flex: 1, padding: '8px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {NAV_CONFIG.map((section) => (
+        {navSections.map((section) => (
           <div key={section.label}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,.35)', textTransform: 'uppercase', letterSpacing: '.8px', padding: '0 20px', marginBottom: 4 }}>
               {section.label}
             </div>
             {section.items.map((item) => {
               const isActive = item.name === activeItem
+              const badgeValue = item.badgeKey ? badges[item.badgeKey] : undefined
               return (
                 <button
                   key={item.name}
@@ -89,13 +129,13 @@ export function AppSidebar({ activeItem }: { activeItem: string }) {
                 >
                   <span style={{ fontSize: 14, width: 20, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
                   <span style={{ flex: 1 }}>{item.name}</span>
-                  {item.badge && (
+                  {badgeValue !== undefined && badgeValue > 0 && (
                     <span style={{
-                      background: item.badge.color, color: 'white',
+                      background: '#DC2626', color: 'white',
                       fontSize: 10, fontWeight: 700, padding: '1px 7px',
                       borderRadius: 10, lineHeight: '16px', minWidth: 24, textAlign: 'center',
                     }}>
-                      {item.badge.text}
+                      {badgeValue}
                     </span>
                   )}
                 </button>
@@ -113,10 +153,10 @@ export function AppSidebar({ activeItem }: { activeItem: string }) {
           width: 32, height: 32, borderRadius: '50%', background: '#3B82F6',
           color: 'white', fontSize: 12, fontWeight: 700,
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>AK</div>
+        }}>{user?.name ? user.name.split(' ').map(n => n[0]).join('') : '??'}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'white', lineHeight: 1.2 }}>Arjun Kumar</div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,.45)', lineHeight: 1.3 }}>Senior Agent</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'white', lineHeight: 1.2 }}>{user?.name ?? 'User'}</div>
+          <div style={{ fontSize: 10, color: 'rgba(255,255,255,.45)', lineHeight: 1.3 }}>{user?.role ?? 'Agent'}</div>
         </div>
         <button
           type="button"

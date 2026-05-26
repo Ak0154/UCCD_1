@@ -1,32 +1,5 @@
 @import 'tailwindcss';
-
-@theme {
-  --color-bg: #0a0f1e;
-  --color-surface: #111827;
-  --color-border: #1e293b;
-  --color-accent: #c9a44c;
-  --color-text: #f8fafc;
-  --color-muted: #94a3b8;
-  --font-display: 'Instrument Sans', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
-
-  --color-dash-bg: #0a0f1e;
-  --color-dash-surface-lowest: #070b17;
-  --color-dash-surface-low: #0d1225;
-  --color-dash-surface: #111827;
-  --color-dash-surface-high: #1a2235;
-  --color-dash-surface-highest: #1e293b;
-  --color-dash-text: #f8fafc;
-  --color-dash-text-muted: #94a3b8;
-  --color-dash-primary: #c9a44c;
-  --color-dash-primary-hover: #b8933a;
-  --color-dash-border: rgba(201, 164, 76, 0.15);
-  --color-dash-outline: #1e293b;
-  --color-dash-error: #ef4444;
-  --color-dash-success: #22c55e;
-
-  --font-sans: 'DM Sans', Inter, system-ui, sans-serif;
-}
+@import './styles/tokens.css';
 
 @layer base {
   html {

@@ -1,5 +1,8 @@
 import type {
   AgentLoad,
+  CategoryBreakdown,
+  ChannelDistribution,
+  ClustersResponse,
   Complaint,
   ComplaintFilters,
   ComplaintHistoryResponse,
@@ -8,10 +11,12 @@ import type {
   DraftResponse,
   LoginRequest,
   LoginResponse,
+  MyQueueResponse,
+  RecentComplaintsResponse,
   TrendsResponse,
 } from '../types/complaint'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 const TOKEN_KEY = 'uccd.access_token'
 const USER_KEY = 'uccd.user'
 
@@ -144,7 +149,34 @@ export const api = {
   },
 
   getKpis() {
-    return request<DashboardKpis>('/api/v1/kpis')
+    return request<DashboardKpis>('/api/v1/dashboard/kpis')
+  },
+
+  getCategories() {
+    return request<CategoryBreakdown>('/api/v1/dashboard/categories')
+  },
+
+  getChannels() {
+    return request<ChannelDistribution>('/api/v1/dashboard/channels')
+  },
+
+  getRecentComplaints(limit = 10) {
+    return request<RecentComplaintsResponse>(`/api/v1/dashboard/recent${toQuery({ limit })}`)
+  },
+
+  getMyQueue(limit = 20) {
+    return request<MyQueueResponse>(`/api/v1/dashboard/my-queue${toQuery({ limit })}`)
+  },
+
+  getClusters() {
+    return request<ClustersResponse>('/api/v1/dashboard/clusters')
+  },
+
+  updateStatus(id: string, newStatus: string) {
+    return request<Complaint>(`/api/v1/complaints/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ new_status: newStatus }),
+    })
   },
 
   getEscalations(filters: Pick<ComplaintFilters, 'page' | 'limit'> = {}) {

@@ -280,7 +280,7 @@ export function Login() {
 
   const [selectedRole, setSelectedRole] = useState<UserRole>('AGENT')
   const [email, setEmail] = useState('agent@example.com')
-  const [password, setPassword] = useState('')
+  const [password, setPassword] = useState('Test@123')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -827,6 +827,10 @@ export function Login() {
                       )}
                     </button>
                   </div>
+                </div>
+
+                <div style={{ fontSize: 12, color: '#999', marginTop: 4, marginLeft: 2 }}>
+                  Demo password: Test@123
                 </div>
 
                 {/* ERROR */}

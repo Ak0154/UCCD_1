@@ -1,71 +1,78 @@
-import os
-import sys
+import sys, os
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.getcwd())
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from dotenv import load_dotenv
+load_dotenv()
 
-from api.auth import hash_password
-from api.db.session import get_db
+from api.db.session import engine, Base, get_db
 from api.models.user import User
-
+from api.auth import hash_password
 
 DEMO_USERS = [
     {
-        "email_env": "DEMO_SUPERVISOR_EMAIL",
-        "password_env": "DEMO_SUPERVISOR_PASSWORD",
-        "email": "supervisor@example.com",
-        "full_name": "Demo Supervisor",
+        "email": os.getenv("DEMO_SUPERVISOR_EMAIL", ""),
+        "full_name": "Supervisor Demo",
         "role": "SUPERVISOR",
+        "password": os.getenv("DEMO_SUPERVISOR_PASSWORD", ""),
     },
     {
-        "email_env": "DEMO_AGENT_EMAIL",
-        "password_env": "DEMO_AGENT_PASSWORD",
-        "email": "agent@example.com",
-        "full_name": "Demo Agent",
-        "role": "AGENT",
-    },
-    {
-        "email_env": "DEMO_COMPLIANCE_EMAIL",
-        "password_env": "DEMO_COMPLIANCE_PASSWORD",
-        "email": "compliance@example.com",
-        "full_name": "Demo Compliance Officer",
+        "email": os.getenv("DEMO_COMPLIANCE_EMAIL", ""),
+        "full_name": "Compliance Demo",
         "role": "COMPLIANCE",
+        "password": os.getenv("DEMO_COMPLIANCE_PASSWORD", ""),
     },
 ]
 
+AGENT_USERS = [
+    {"email": "rahul.sharma@hdfc.com", "full_name": "Rahul Sharma", "role": "AGENT", "department": "loans", "password": "hdfc123"},
+    {"email": "priya.patel@hdfc.com", "full_name": "Priya Patel", "role": "AGENT", "department": "technical", "password": "hdfc123"},
+    {"email": "amit.kumar@hdfc.com", "full_name": "Amit Kumar", "role": "AGENT", "department": "cards", "password": "hdfc123"},
+    {"email": "sneha.gupta@hdfc.com", "full_name": "Sneha Gupta", "role": "AGENT", "department": "accounts", "password": "hdfc123"},
+    {"email": "vikram.singh@hdfc.com", "full_name": "Vikram Singh", "role": "AGENT", "department": "service", "password": "hdfc123"},
+    {"email": os.getenv("DEMO_AGENT_EMAIL", ""), "full_name": "Agent Demo", "role": "AGENT", "department": "general", "password": os.getenv("DEMO_AGENT_PASSWORD", "")},
+]
 
-def seed_users() -> None:
-    db = next(get_db())
-    try:
-        for item in DEMO_USERS:
-            email = os.getenv(item["email_env"], item["email"])
-            password = os.getenv(item["password_env"])
-            if not password:
-                print(f"Skipping {item['role']} user {email}: no password env var set")
-                continue
-            user = db.query(User).filter(User.email == email).first()
-            if user is None:
-                user = User(
-                    email=email,
-                    full_name=item["full_name"],
-                    hashed_password=hash_password(password),
-                    role=item["role"],
-                    is_active=True,
-                )
-                db.add(user)
-                print(f"Created {item['role']} user: {email}")
-            else:
-                user.full_name = item["full_name"]
-                user.hashed_password = hash_password(password)
-                user.role = item["role"]
-                user.is_active = True
-                print(f"Updated {item['role']} user: {email}")
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+Base.metadata.create_all(bind=engine)
 
+db = next(get_db())
+try:
+    deleted = db.query(User).delete()
+    db.commit()
+    print(f"Deleted {deleted} existing user(s).")
 
-if __name__ == "__main__":
-    seed_users()
+    for u in DEMO_USERS:
+        if not u["email"] or not u["password"]:
+            print(f"Skipping {u['role']}: missing email or password in env")
+            continue
+        user = User(
+            email=u["email"],
+            full_name=u["full_name"],
+            hashed_password=hash_password(u["password"]),
+            role=u["role"],
+            is_active=True,
+        )
+        db.add(user)
+        print(f"Seeded {u['role']}: {u['email']}")
+
+    for u in AGENT_USERS:
+        if not u["email"] or not u["password"]:
+            print(f"Skipping {u['full_name']}: missing email or password")
+            continue
+        user = User(
+            email=u["email"],
+            full_name=u["full_name"],
+            hashed_password=hash_password(u["password"]),
+            role=u["role"],
+            is_active=True,
+        )
+        db.add(user)
+        print(f"Seeded {u['role']} [{u['department']}]: {u['email']} ({u['full_name']})")
+
+    db.commit()
+    print("Done. Total agents: 5 specialist + 1 demo.")
+except Exception as e:
+    db.rollback()
+    print(f"Error: {e}")
+finally:
+    db.close()

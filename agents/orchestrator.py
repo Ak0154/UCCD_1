@@ -24,6 +24,7 @@ from datetime import datetime, timezone, timedelta
 from services.sla_service import set_sla_timer
 from services.regulatory_service import set_regulatory_timer
 from services.translation_service import SarvamTranslationService, TranslationStage
+from services.agent_service import auto_assign_complaint
 
 load_dotenv()
 
@@ -143,6 +144,13 @@ Tone constraints:
                 set_regulatory_timer(str(complaint.id), complaint.regulatory_obligation)
             except Exception as e:
                 logger.warning(f"Failed to set regulatory timer in Redis: {e}")
+
+        try:
+            assigned = auto_assign_complaint(db, str(complaint.id), complaint.complaint_type)
+            if assigned:
+                logger.info(f"AI auto-assigned complaint {complaint.id} → {assigned}")
+        except Exception as e:
+            logger.warning(f"Auto-assignment failed for {complaint.id}: {e}")
     finally:
         db.close()
             

@@ -72,6 +72,10 @@ export interface ComplaintFilters {
   regulatory_flag?: boolean
   priority_tier?: number
   sla_tier?: string
+  sla_breached?: boolean
+  has_cluster?: boolean
+  has_draft?: boolean
+  has_root_cause?: boolean
   search?: string
   page?: number
   limit?: number
@@ -84,6 +88,38 @@ export interface DashboardKpis {
   in_progress: number
   escalated: number
   breached: number
+  resolved_today: number
+  resolution_rate: number
+  sla_at_risk: number
+  avg_resolution_hours: number
+  regulatory_flagged: number
+}
+
+export interface CategoryBreakdown {
+  categories: { name: string; count: number }[]
+}
+
+export interface ChannelDistribution {
+  channels: { name: string; count: number; percentage: number }[]
+}
+
+export interface RecentComplaintsResponse {
+  complaints: Complaint[]
+}
+
+export interface MyQueueResponse {
+  complaints: Complaint[]
+}
+
+export interface ComplaintCluster {
+  cluster_id: string
+  count: number
+  complaint_types: string[]
+  complaints: Complaint[]
+}
+
+export interface ClustersResponse {
+  clusters: ComplaintCluster[]
 }
 
 export interface AgentLoad {

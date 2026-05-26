@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
         sa.PrimaryKeyConstraint('id'),
-        sa.CheckConstraint("role IN ('AGENT', 'SUPERVISOR')", name="users_role_check"),
+        sa.CheckConstraint("role IN ('AGENT', 'SUPERVISOR', 'COMPLIANCE')", name="users_role_check"),
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
 

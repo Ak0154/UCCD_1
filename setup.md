@@ -41,7 +41,10 @@ Create the message streaming topics on your local Kafka instance:
 ```bash
 docker compose run --rm api python scripts/create_kafka_topics.py
 ```
-
+Access to fetch at 'http://localhost:8888/api/v1/dashboard/kpis' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+:8888/api/v1/dashboard/kpis:1  Failed to load resource: net::ERR_FAILED
+sla-breaches:1 Access to fetch at 'http://localhost:8888/api/v1/complaints?sla_breached=true&limit=50' from origin 'http://localhost:5173' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.
+:8888/api/v1/complaints?sla_breached=true&limit=50:1  Failed to load resource: net::ERR_FAILED
 ---
 
 ### Step 4: Start the Frontend Application

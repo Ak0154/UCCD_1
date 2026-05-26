@@ -28,19 +28,14 @@ def create_mock_complaint(status="queued", assigned_to=None, pre_escalate=False,
     return complaint
 
 
-def test_history_queued_complaint(monkeypatch):
+def test_history_queued_complaint():
     """TSK-5.6: Focused test for GET /api/v1/complaints/{id}/history endpoint."""
     complaint = create_mock_complaint(status="queued")
 
-    def mock_get_db():
-        yield None
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.first.return_value = complaint
 
-    def mock_query_first(_self, _query):
-        return complaint
-
-    monkeypatch.setattr("api.routes.history.get_db", mock_get_db)
-
-    result = get_complaint_history("test-complaint-001", db=None)
+    result = get_complaint_history("test-complaint-001", db=mock_db)
     assert result["complaint_id"] == "test-complaint-001"
     assert len(result["timeline"]) >= 2
 
@@ -65,7 +60,7 @@ def test_history_queued_complaint(monkeypatch):
     assert triage_dt - ingestion_dt == timedelta(seconds=2)
 
 
-def test_history_resolved_complaint(monkeypatch):
+def test_history_resolved_complaint():
     """Verify resolved complaints include resolution and escalation events."""
     complaint = create_mock_complaint(
         status="resolved",
@@ -74,12 +69,10 @@ def test_history_resolved_complaint(monkeypatch):
         resolution_notes="Refund processed",
     )
 
-    def mock_get_db():
-        yield None
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.first.return_value = complaint
 
-    monkeypatch.setattr("api.routes.history.get_db", mock_get_db)
-
-    result = get_complaint_history("test-complaint-001", db=None)
+    result = get_complaint_history("test-complaint-001", db=mock_db)
     assert result["complaint_id"] == "test-complaint-001"
     assert len(result["timeline"]) >= 4
 
@@ -93,6 +86,21 @@ def test_history_resolved_complaint(monkeypatch):
 
 def test_history_missing_complaint_returns_404():
     """TSK-5.6: Missing complaint should return 404."""
-    response = client.get("/api/v1/complaints/nonexistent-id/history")
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Complaint not found"
+    from api.auth import get_current_user
+    from api.db.session import get_db
+
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+
+    def override_get_db():
+        yield mock_db
+
+    app.dependency_overrides[get_current_user] = lambda: MagicMock()
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        response = client.get("/api/v1/complaints/nonexistent-id/history")
+        assert response.status_code == 404
+        assert response.json()["detail"] == "Complaint not found"
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_db, None)
