@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { api } from '../api/client'
 import type { Complaint, DashboardKpis, CategoryBreakdown, ChannelDistribution } from '../types/complaint'
@@ -56,7 +57,7 @@ function getTimeAgo(dateStr: string) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-function AgentDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Complaint[] }) {
+function AgentDashboard({ kpis, recent, navigate }: { kpis: DashboardKpis; recent: Complaint[]; navigate: any }) {
   return (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 16 }}>
@@ -78,8 +79,8 @@ function AgentDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Complai
             recent.slice(0, 8).map((comp) => {
               const sev = severityColors[comp.priority_tier && comp.priority_tier <= 2 ? 'HIGH' : comp.priority_tier === 3 ? 'MEDIUM' : 'LOW'] ?? severityColors.LOW
               return (
-                <div key={comp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid #F3F4F6' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', fontFamily: 'monospace', minWidth: 90 }}>{String(comp.id).slice(0, 8)}</span>
+                <div key={comp.id} onClick={() => navigate(`/app/complaints/${comp.id}`)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid #F3F4F6', cursor: 'pointer', transition: 'background .1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', fontFamily: 'monospace', minWidth: 90 }}>{String(comp.id).slice(0, 8)}</span>
                   <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, color: sev.text, background: sev.bg, whiteSpace: 'nowrap' }}>{comp.sla_tier ?? 'NORMAL'}</span>
                   <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{comp.raw_text.slice(0, 80)}</span>
                   <span style={{ fontSize: 10, color: '#9CA3AF' }}>{getTimeAgo(comp.created_at)}</span>
@@ -125,7 +126,7 @@ function AgentDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Complai
   )
 }
 
-function SupervisorDashboard({ kpis, categories, channels, recent }: { kpis: DashboardKpis; categories: CategoryBreakdown; channels: ChannelDistribution; recent: Complaint[] }) {
+function SupervisorDashboard({ kpis, categories, channels, recent, navigate }: { kpis: DashboardKpis; categories: CategoryBreakdown; channels: ChannelDistribution; recent: Complaint[]; navigate: any }) {
   const handleQuickResolve = async (id: string) => {
     try {
       await api.updateStatus(id, 'resolved')
@@ -203,15 +204,15 @@ function SupervisorDashboard({ kpis, categories, channels, recent }: { kpis: Das
           recent.slice(0, 10).map((comp) => {
             const sev = severityColors[comp.priority_tier && comp.priority_tier <= 2 ? 'HIGH' : comp.priority_tier === 3 ? 'MEDIUM' : 'LOW'] ?? severityColors.LOW
             return (
-              <div key={comp.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', borderBottom: '1px solid #F3F4F6' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', fontFamily: 'monospace', minWidth: 90 }}>{String(comp.id).slice(0, 8)}</span>
+              <div key={comp.id} onClick={() => navigate(`/app/complaints/${comp.id}`)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px', borderBottom: '1px solid #F3F4F6', cursor: 'pointer', transition: 'background .1s' }} onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', fontFamily: 'monospace', minWidth: 90 }}>{String(comp.id).slice(0, 8)}</span>
                 <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, color: sev.text, background: sev.bg }}>{comp.sla_tier ?? 'NORMAL'}</span>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{comp.raw_text.slice(0, 80)}</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>{channelIcons[comp.channel.toLowerCase()] ?? ''} {comp.channel}</span>
                 <span style={{ fontSize: 10, color: '#9CA3AF' }}>{getTimeAgo(comp.created_at)}</span>
                 <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 600, color: statusColors[comp.status]?.text ?? '#6B7280', background: statusColors[comp.status]?.bg ?? '#F3F4F6' }}>{comp.status.replace('_', ' ')}</span>
                 {(comp.status === 'escalated' || comp.status === 'in_progress') && (
-                  <button type="button" onClick={() => handleQuickResolve(String(comp.id))}
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleQuickResolve(String(comp.id)) }}
                     style={{ padding: '3px 10px', borderRadius: 6, background: '#16A34A', color: 'white', border: 'none', fontSize: 10, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     Resolve
                   </button>
@@ -296,6 +297,7 @@ function ComplianceDashboard({ kpis, recent }: { kpis: DashboardKpis; recent: Co
 
 export function Dashboard() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const role = user?.role ?? 'AGENT'
   const [kpis, setKpis] = useState<DashboardKpis | null>(null)
   const [categories, setCategories] = useState<CategoryBreakdown | null>(null)
@@ -418,8 +420,8 @@ export function Dashboard() {
         </header>
 
         <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {role === 'AGENT' && <AgentDashboard kpis={kpis} recent={recent} />}
-          {role === 'SUPERVISOR' && categories && channels && <SupervisorDashboard kpis={kpis} categories={categories} channels={channels} recent={recent} />}
+          {role === 'AGENT' && <AgentDashboard kpis={kpis} recent={recent} navigate={navigate} />}
+          {role === 'SUPERVISOR' && categories && channels && <SupervisorDashboard kpis={kpis} categories={categories} channels={channels} recent={recent} navigate={navigate} />}
           {role === 'COMPLIANCE' && <ComplianceDashboard kpis={kpis} recent={recent} />}
         </div>
       </div>

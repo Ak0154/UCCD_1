@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { AppSidebar } from '../layout/AppSidebar'
 import { api } from '../api/client'
 import type { Complaint } from '../types/complaint'
@@ -41,6 +41,7 @@ const channelIcons: Record<string, string> = {
 
 interface MappedComplaint {
   id: string
+  fullId: string
   severity: string
   customer: string
   accountType: string
@@ -112,6 +113,7 @@ function mapComplaint(c: Complaint): MappedComplaint {
 
   return {
     id: String(c.id).slice(0, 8),
+    fullId: String(c.id),
     severity,
     customer: c.customer_name ?? c.customer_id,
     accountType: c.account_number ?? '',
@@ -361,6 +363,7 @@ function Drawer({ row, onClose }: { row: MappedComplaint; onClose: () => void })
 
 export function AllComplaints({ defaultSearch = '', sidebarActiveItem }: { defaultSearch?: string; sidebarActiveItem?: string }) {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const filterAssignedToMe = searchParams.get('assigned_to') === 'me'
 
@@ -541,7 +544,7 @@ export function AllComplaints({ defaultSearch = '', sidebarActiveItem }: { defau
                             <polyline points="6 9 12 15 18 9" />
                           </svg>
                         </button>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: '#6B7280', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{row.id}</span>
+                        <span onClick={() => navigate(`/app/complaints/${row.fullId}`)} style={{ fontSize: 11, fontWeight: 600, color: '#3B82F6', fontFamily: 'monospace', whiteSpace: 'nowrap', cursor: 'pointer' }}>{row.id}</span>
                         <span style={{ padding: '1px 6px', borderRadius: 8, fontSize: 9, fontWeight: 700, color: sev.text, background: sev.bg, whiteSpace: 'nowrap' }}>{row.severity}</span>
                       </div>
 
@@ -582,8 +585,8 @@ export function AllComplaints({ defaultSearch = '', sidebarActiveItem }: { defau
                         }}>{row.status}</span>
                         <div style={{ display: 'flex', gap: 4 }}>
                           {[
-                            { label: 'View', onClick: () => setDrawerRow(row) },
-                            { label: 'Reply', onClick: () => setDrawerRow(row) },
+                            { label: 'View', onClick: () => navigate(`/app/complaints/${row.fullId}`) },
+                            { label: 'Reply', onClick: () => navigate(`/app/complaints/${row.fullId}`) },
                           ].map((action) => (
                             <button key={action.label} type="button" onClick={action.onClick}
                               style={{
