@@ -12,6 +12,7 @@ import { Trends } from './pages/Trends'
 import { RootCause } from './pages/RootCause'
 import { RegulatoryReports } from './pages/RegulatoryReports'
 import { SearchPage } from './pages/SearchPage'
+import { ComplaintDetail } from './pages/ComplaintDetail'
 import { ProtectedRoute } from './routes/ProtectedRoute'
 import { NotFound } from './components/uccd/NotFound'
 
@@ -28,6 +29,7 @@ export default function App() {
           <Route index element={<Navigate to="/app/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="complaints" element={<AllComplaints />} />
+          <Route path="complaints/:id" element={<ComplaintDetail />} />
           <Route path="escalations" element={<Escalations />} />
           <Route path="sla-breaches" element={<SlaBreaches />} />
           <Route path="360-view" element={<ThreeSixtyView />} />

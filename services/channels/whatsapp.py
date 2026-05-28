@@ -28,7 +28,7 @@ class WhatsAppChannel(BaseChannel):
         self._stop_flag = threading.Event()
 
     def is_configured(self) -> bool:
-        return bool(self.base_url)
+        return bool(self.base_url and self.api_key)
 
     async def start(self) -> None:
         if not self.is_configured():

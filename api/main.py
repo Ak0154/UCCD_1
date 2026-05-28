@@ -23,6 +23,22 @@ from api.websocket import router as ws_router, manager
 
 logger = logging.getLogger("uccd.request")
 
+_console_handler = logging.StreamHandler()
+_console_handler.setLevel(logging.INFO)
+_console_handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+_loggers = [
+    "services.email_conversation_agent",
+    "services.guardrails",
+    "services.channels.email",
+    "api.routes.webhooks",
+]
+for _name in _loggers:
+    _l = logging.getLogger(_name)
+    _l.setLevel(logging.INFO)
+    _l.propagate = True
+    if not _l.handlers:
+        _l.addHandler(_console_handler)
+
 scheduler = BackgroundScheduler()
 
 
