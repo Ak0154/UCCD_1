@@ -66,11 +66,7 @@ async def send_triage_update(complaint, ai_draft: str) -> bool:
     sla_hours = tier_hours.get(complaint.sla_tier, 72)
     sev_str = _severity_str(complaint)
 
-    if channel_name == "instagram":
-        short = f"Ticket #{complaint.id} · {complaint.complaint_type or 'General'} · SLA {sla_hours}h · Severity {sev_str}"
-        return await channel.send_message(complaint.source_ref, short)
-
-    if channel_name == "telegram":
+    if channel_name in ("instagram", "telegram", "twitter"):
         return True
 
     msg = (

@@ -4,6 +4,7 @@ import logging
 import os
 import threading
 import time
+from dataclasses import dataclass
 
 from services.channels.base import BaseChannel
 from api.config import get_settings
@@ -11,6 +12,25 @@ from api.models.outbound_message import OutboundMessage
 from api.db.session import get_db
 
 logger = logging.getLogger(__name__)
+
+STEP_PROMPTS = {
+    "name": "Please provide your full name.",
+    "account_no": "Please provide your account number.",
+    "phone": "Please provide your phone number.",
+    "email": "Please provide your email address.",
+}
+
+
+@dataclass
+class UserSession:
+    step: str = "complaint"
+    complaint_text: str = ""
+    name: str = ""
+    account_no: str = ""
+    phone: str = ""
+    email: str = ""
+    complaint_id: str = ""
+    sender_id: str = ""
 
 
 class InstagramChannel(BaseChannel):
@@ -30,6 +50,24 @@ class InstagramChannel(BaseChannel):
         self._last_seen_message_ids: set[str] = set()
         self._last_seen_file = "instagram_last_seen.json"
         self._load_last_seen()
+        self._sessions: dict[str, UserSession] = {}
+
+    def _load_last_seen(self) -> None:
+        try:
+            if os.path.exists(self._last_seen_file):
+                with open(self._last_seen_file) as f:
+                    data = json.load(f)
+                    self._last_seen_message_ids = set(data.get("message_ids", []))
+        except Exception:
+            self._last_seen_message_ids = set()
+
+    def _save_last_seen(self) -> None:
+        try:
+            ids_list = list(self._last_seen_message_ids)[-2000:]
+            with open(self._last_seen_file, "w") as f:
+                json.dump({"message_ids": ids_list}, f)
+        except Exception:
+            pass
 
     def is_configured(self) -> bool:
         return self._settings.is_configured()
@@ -77,6 +115,112 @@ class InstagramChannel(BaseChannel):
             self._thread.join(timeout=5)
         logger.info("InstagramChannel stopped.")
 
+    def _dm_reply(self, thread_id: str, text: str) -> bool:
+        if self._client is None:
+            return False
+        try:
+            self._client.direct_send(text[:1000], thread_ids=[int(thread_id)])
+            self._log_outbound(thread_id, text[:1000], True, None)
+            return True
+        except Exception as e:
+            self._log_outbound(thread_id, text[:1000], False, str(e))
+            logger.error(f"Instagram DM reply failed: {e}")
+            return False
+
+    def _handle_dm(self, sender_id: str, text_strip: str, thread_id: str, api_host: str) -> None:
+        if sender_id not in self._sessions:
+            self._sessions[sender_id] = UserSession(sender_id=sender_id)
+            self._dm_reply(thread_id, "Welcome to Union Bank of India Support!\n\nPlease describe your complaint or issue in detail.")
+            return
+
+        session = self._sessions[sender_id]
+
+        if text_strip.lower() in ("/start", "/reset"):
+            self._sessions[sender_id] = UserSession(sender_id=sender_id)
+            self._dm_reply(thread_id, "Session reset. Please describe your complaint or issue in detail.")
+            return
+
+        if session.step == "registered":
+            self._dm_reply(thread_id,
+                f"Your complaint is registered.\nTicket ID: {session.complaint_id}\nYou will be notified when it is resolved."
+            )
+            return
+
+        if session.step == "complaint":
+            session.complaint_text = text_strip
+            session.step = "name"
+            self._dm_reply(thread_id, STEP_PROMPTS["name"])
+            return
+
+        if session.step == "name":
+            session.name = text_strip
+            session.step = "account_no"
+            self._dm_reply(thread_id, STEP_PROMPTS["account_no"])
+            return
+
+        if session.step == "account_no":
+            session.account_no = text_strip
+            session.step = "phone"
+            self._dm_reply(thread_id, STEP_PROMPTS["phone"])
+            return
+
+        if session.step == "phone":
+            session.phone = text_strip
+            session.step = "email"
+            self._dm_reply(thread_id, STEP_PROMPTS["email"])
+            return
+
+        if session.step == "email":
+            session.email = text_strip
+            self._create_complaint_from_session(session, thread_id, api_host)
+
+    def _create_complaint_from_session(self, session: UserSession, thread_id: str, api_host: str) -> None:
+        import requests
+
+        payload = {
+            "customer_id": f"IG_{session.sender_id}",
+            "channel": "instagram",
+            "source_ref": thread_id,
+            "raw_text": session.complaint_text,
+        }
+
+        try:
+            res = requests.post(f"{api_host}/api/v1/complaints", json=payload, timeout=10)
+            if res.status_code == 201:
+                complaint_data = res.json()
+                session.complaint_id = complaint_data.get("id")
+                session.step = "registered"
+
+                try:
+                    requests.put(
+                        f"{api_host}/api/v1/complaints/{session.complaint_id}/details",
+                        json={
+                            "customer_name": session.name or None,
+                            "customer_email": session.email or None,
+                            "customer_phone": session.phone or None,
+                            "account_number": session.account_no or None,
+                        },
+                        timeout=10,
+                    )
+                except Exception:
+                    pass
+
+                self._dm_reply(thread_id,
+                    f"Complaint Registered!\n"
+                    f"Ticket ID: {session.complaint_id}\n"
+                    f"Name: {session.name}\n"
+                    f"Account: {session.account_no}\n"
+                    f"Phone: {session.phone}\n"
+                    f"Email: {session.email}\n\n"
+                    f"Our team is reviewing your case. You will be notified when it is resolved."
+                )
+            else:
+                logger.warning(f"API returned status {res.status_code}: {res.text}")
+                self._dm_reply(thread_id, "Could not register your complaint. Please try again later.")
+        except Exception as api_err:
+            logger.warning(f"Failed to create Instagram complaint: {api_err}")
+            self._dm_reply(thread_id, "Could not register your complaint. Please try again later.")
+
     def _poll_dms(self) -> None:
         logger.info("Instagram DM poller activated.")
         api_host = get_settings().api_host
@@ -109,20 +253,10 @@ class InstagramChannel(BaseChannel):
 
                         self._last_seen_message_ids.add(msg_id)
                         newly_processed = True
-                        logger.info(f"Instagram DM from {sender_id}: '{text[:40]}...'")
-                        payload = {
-                            "customer_id": f"IG_{sender_id}",
-                            "channel": "instagram",
-                            "source_ref": thread_id,
-                            "raw_text": text,
-                        }
-                        try:
-                            import requests
-                            res = requests.post(f"{api_host}/api/v1/complaints", json=payload, timeout=10)
-                            if res.status_code == 201:
-                                logger.info(f"Instagram complaint created for thread {thread_id}")
-                        except Exception as api_err:
-                            logger.warning(f"Failed to create Instagram complaint: {api_err}")
+                        text_strip = text.strip()
+                        logger.info(f"Instagram DM from {sender_id}: '{text_strip[:40]}...'")
+
+                        self._handle_dm(sender_id, text_strip, thread_id, api_host)
 
                 if newly_processed:
                     self._save_last_seen()
@@ -131,23 +265,6 @@ class InstagramChannel(BaseChannel):
                 logger.error(f"Error in Instagram DM polling: {e}")
             finally:
                 time.sleep(60)
-
-    def _load_last_seen(self) -> None:
-        try:
-            if os.path.exists(self._last_seen_file):
-                with open(self._last_seen_file) as f:
-                    data = json.load(f)
-                    self._last_seen_message_ids = set(data.get("message_ids", []))
-        except Exception:
-            self._last_seen_message_ids = set()
-
-    def _save_last_seen(self) -> None:
-        try:
-            ids_list = list(self._last_seen_message_ids)[-2000:]
-            with open(self._last_seen_file, "w") as f:
-                json.dump({"message_ids": ids_list}, f)
-        except Exception:
-            pass
 
     async def send_message(self, source_ref: str, text: str, **kwargs) -> bool:
         if self._client is None:
