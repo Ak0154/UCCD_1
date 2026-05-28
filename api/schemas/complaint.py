@@ -61,6 +61,15 @@ class ComplaintResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class BulkAutoAssignRequest(BaseModel):
+    complaint_ids: List[str]
+    department: Optional[str] = None
+
+class BulkAutoAssignResponse(BaseModel):
+    assigned: int
+    failed: int
+    assignments: dict[str, Optional[str]]
+
 class ComplaintListResponse(BaseModel):
     complaints: List[ComplaintResponse]
     total: int
@@ -69,3 +78,40 @@ class ComplaintListResponse(BaseModel):
 
 class StatusUpdate(BaseModel):
     new_status: str
+
+class ComplaintSummary(BaseModel):
+    complaint_id: str
+    status: str
+    complaint_type: Optional[str] = None
+    intent: Optional[str] = None
+    product_code: Optional[str] = None
+    channel: str
+    raw_text: str
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+    sla_breached: bool = False
+    sla_deadline: Optional[datetime] = None
+    regulatory_flag: bool = False
+    assigned_to: Optional[str] = None
+    ai_draft: Optional[str] = None
+    root_cause: Optional[str] = None
+
+class CustomerProfileResponse(BaseModel):
+    customer_id: str
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    customer_phone: Optional[str] = None
+    account_number: Optional[str] = None
+    vip_customer: bool = False
+    total_complaints: int = 0
+    open_complaints: int = 0
+    resolved_complaints: int = 0
+    avg_resolution_hours: Optional[float] = None
+    sla_breach_count: int = 0
+    most_common_issue: Optional[str] = None
+    preferred_channel: Optional[str] = None
+    viral_risk_score: Optional[float] = None
+    regulatory_flagged: bool = False
+    repeat_complaint: bool = False
+    active_complaints: List[ComplaintSummary] = []
+    complaint_history: List[ComplaintSummary] = []

@@ -1,7 +1,7 @@
 'use client'
 
-import { lazy, Suspense } from 'react'
-import { useRouter, RouterProvider } from '@/hooks/use-router'
+import { lazy, Suspense, use } from 'react'
+import { useRouter, RouterProvider, type RoutePath } from '@/hooks/use-router'
 import { AuthProvider, useAuth } from '@/hooks/use-auth'
 import { LoginPage } from '@/components/login-page'
 import { AiDraftsPage } from '@/components/ai-drafts-page'
@@ -57,9 +57,36 @@ function AppRouter() {
   )
 }
 
-export default function CatchAllPage() {
+function getRouteFromSlug(slug: string[]): RoutePath {
+  const path = '/' + slug.join('/')
+  switch (path) {
+    case '/login': return 'login'
+    case '/dashboard': return 'dashboard'
+    case '/complaints': return 'complaints'
+    case '/complaint-detail': return 'complaint-detail'
+    case '/escalations': return 'escalations'
+    case '/sla-breaches': return 'sla-breaches'
+    case '/360-view': return '360-view'
+    case '/ai-drafts': return 'ai-drafts'
+    case '/trends': return 'trends'
+    case '/root-cause': return 'root-cause'
+    case '/regulatory': return 'regulatory'
+    case '/search': return 'search'
+    case '/settings': return 'settings'
+    default: return 'not-found'
+  }
+}
+
+export default function CatchAllPage({
+  params,
+}: {
+  params: Promise<{ slug: string[] }>
+}) {
+  const { slug } = use(params)
+  const initialRoute = getRouteFromSlug(slug)
+
   return (
-    <RouterProvider>
+    <RouterProvider initialRoute={initialRoute}>
       <AuthProvider>
         <AppRouter />
       </AuthProvider>

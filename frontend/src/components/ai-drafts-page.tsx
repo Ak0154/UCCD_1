@@ -6,6 +6,8 @@ import type { ShellTab } from '@/components/dashboard-shell'
 import { AppBreadcrumb } from '@/components/app-breadcrumb'
 import { api } from '@/lib/api-client'
 import type { Complaint } from '@/types/complaint'
+import { useAuth } from '@/hooks/use-auth'
+import { useRouter } from '@/hooks/use-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -13,7 +15,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { DataTable, multiColumnFilterFn, valueInArrayFilterFn } from '@/components/ui/data-table'
 import type { ColumnDef } from '@tanstack/react-table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { HoverText } from '@/components/ui/hover-text'
 import { Loader2, MoreHorizontal, Copy, Send, RefreshCw } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -29,6 +30,8 @@ interface DisplayDraft { id: string; complaintId: string; customer: string; summ
 
 
 export function AiDraftsPage() {
+  const { user } = useAuth()
+  const { navigate } = useRouter()
   const [drafts, setDrafts] = useState<DisplayDraft[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,7 +41,11 @@ export function AiDraftsPage() {
     let cancelled = false
     async function load() {
       try {
-        const res = await api.listComplaints({ limit: 100 })
+        const filters: Record<string, unknown> = { limit: 100 }
+        if (user?.role === 'AGENT' && user?.email) {
+          filters.assigned_to = user.email
+        }
+        const res = await api.listComplaints(filters)
         if (cancelled) return
         const mapped: DisplayDraft[] = res.complaints.filter((c: Complaint) => c.ai_draft).map((c: Complaint, i: number) => ({
           id: `DFT-${1000 + i}`, complaintId: c.id, customer: c.customer_name ?? c.customer_id, summary: c.complaint_type || c.raw_text.slice(0, 60), channel: c.channel || 'Email',
@@ -94,16 +101,13 @@ export function AiDraftsPage() {
       header: 'Complaint ID',
       size: 100,
       cell: ({ getValue, row }) => (
-        <HoverText
-          text={(getValue() as string).slice(0, 8)}
-          fullText={getValue() as string}
-          className="cursor-pointer font-mono text-xs font-semibold text-muted-foreground hover:text-primary"
-          onClick={() => setSelectedDraft(row.original)}
-          actions={[
-            { label: 'Send and resolve', icon: <Send className="h-3.5 w-3.5" />, onClick: () => handleMarkSent(row.original.complaintId) },
-            { label: 'Regenerate draft', icon: <RefreshCw className="h-3.5 w-3.5" />, onClick: () => handleRegenerate(row.original.complaintId) },
-          ]}
-        />
+        <button
+          type="button"
+          onClick={() => navigate('complaint-detail', { id: row.original.complaintId })}
+          className="cursor-pointer font-mono text-xs font-semibold text-primary hover:underline text-left"
+        >
+          {(getValue() as string).slice(0, 8)}
+        </button>
       ),
       filterFn: multiColumnFilterFn,
     },
@@ -112,15 +116,13 @@ export function AiDraftsPage() {
       header: 'Customer',
       size: 130,
       cell: ({ getValue, row }) => (
-        <HoverText
-          text={getValue() as string}
-          className="max-w-[120px] cursor-pointer text-xs font-semibold text-foreground"
-          onClick={() => setSelectedDraft(row.original)}
-          actions={[
-            { label: 'Send and resolve', icon: <Send className="h-3.5 w-3.5" />, onClick: () => handleMarkSent(row.original.complaintId) },
-            { label: 'Regenerate draft', icon: <RefreshCw className="h-3.5 w-3.5" />, onClick: () => handleRegenerate(row.original.complaintId) },
-          ]}
-        />
+        <button
+          type="button"
+          onClick={() => navigate('complaint-detail', { id: row.original.complaintId })}
+          className="max-w-[120px] cursor-pointer truncate text-xs font-semibold text-foreground hover:text-primary text-left"
+        >
+          {getValue() as string}
+        </button>
       ),
     },
     {
@@ -128,14 +130,13 @@ export function AiDraftsPage() {
       header: 'Summary',
       size: 200,
       cell: ({ getValue, row }) => (
-        <HoverText
-          text={getValue() as string}
-          className="max-w-[180px] text-[11px] text-foreground/80"
-          actions={[
-            { label: 'Send and resolve', icon: <Send className="h-3.5 w-3.5" />, onClick: () => handleMarkSent(row.original.complaintId) },
-            { label: 'Regenerate draft', icon: <RefreshCw className="h-3.5 w-3.5" />, onClick: () => handleRegenerate(row.original.complaintId) },
-          ]}
-        />
+        <button
+          type="button"
+          onClick={() => navigate('complaint-detail', { id: row.original.complaintId })}
+          className="max-w-[180px] cursor-pointer truncate text-[11px] text-foreground/80 hover:text-primary text-left"
+        >
+          {getValue() as string}
+        </button>
       ),
     },
     {
@@ -143,14 +144,13 @@ export function AiDraftsPage() {
       header: 'Preview',
       size: 200,
       cell: ({ getValue, row }) => (
-        <HoverText
-          text={getValue() as string}
-          className="max-w-[180px] text-[11px] text-muted-foreground"
-          actions={[
-            { label: 'Send and resolve', icon: <Send className="h-3.5 w-3.5" />, onClick: () => handleMarkSent(row.original.complaintId) },
-            { label: 'Regenerate draft', icon: <RefreshCw className="h-3.5 w-3.5" />, onClick: () => handleRegenerate(row.original.complaintId) },
-          ]}
-        />
+        <button
+          type="button"
+          onClick={() => navigate('complaint-detail', { id: row.original.complaintId })}
+          className="max-w-[180px] cursor-pointer truncate text-[11px] text-muted-foreground hover:text-primary text-left"
+        >
+          {getValue() as string}
+        </button>
       ),
     },
     {

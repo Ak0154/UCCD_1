@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { Nav } from './uccd/Nav'
 import { Hero } from './uccd/Hero'
 import { Intro } from './uccd/Intro'
@@ -13,6 +14,17 @@ import { ApiDocs } from './uccd/ApiDocs'
 import { Questions } from './uccd/Questions'
 import { FinalCTA } from './uccd/FinalCTA'
 
+function scrollToHash() {
+  const hash = window.location.hash
+  if (!hash) return
+  const target = document.querySelector(hash)
+  if (target) {
+    setTimeout(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 100)
+  }
+}
+
 export function LandingPage() {
   const footerLogos = [
     ['GQ', 'Powered by Groq'],
@@ -24,6 +36,12 @@ export function LandingPage() {
     ['PG', 'Neon PostgreSQL'],
     ['UC', 'UCCD OmniResol'],
   ]
+
+  useEffect(() => {
+    scrollToHash()
+    window.addEventListener('hashchange', scrollToHash)
+    return () => window.removeEventListener('hashchange', scrollToHash)
+  }, [])
 
   return (
     <div className="uccd-landing min-h-screen bg-bg text-text font-body">

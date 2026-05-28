@@ -116,7 +116,7 @@ export function ApiDocs() {
     endpointsData[0]
 
   return (
-    <section id="api-docs" className="border-t border-border py-20">
+    <section id="api-docs" className="border-t border-border py-20 scroll-mt-24">
       <Container>
         <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
           <div>

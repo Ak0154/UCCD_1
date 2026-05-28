@@ -13,11 +13,20 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DataTable, multiColumnFilterFn, valueInArrayFilterFn } from '@/components/ui/data-table'
 import type { ColumnDef, Row } from '@tanstack/react-table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { ExternalLink, LayoutGrid, Plus, MoreHorizontal, Eye, MessageSquare, Sparkles, Send, RotateCcw, AlertTriangle, Mail, Smartphone, Globe2, Phone, Building2 } from 'lucide-react'
-import { HoverText } from '@/components/ui/hover-text'
+import { toast } from '@/hooks/use-toast'
+import { LayoutGrid, Plus, MoreHorizontal, Eye, MessageSquare, Sparkles, Send, RotateCcw, AlertTriangle, Mail, Smartphone, Globe2, Phone, Building2 } from 'lucide-react'
+import { Label } from '@/components/ui/label'
 
 const severityColors: Record<string, { bg: string; text: string }> = {
   Critical: { bg: 'color-mix(in oklch, var(--destructive) 12%, transparent)', text: 'var(--destructive)' },
@@ -232,6 +241,10 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
   const [error, setError] = useState<string | null>(null)
   const [replyDraft, setReplyDraft] = useState('')
   const [selectedRows, setSelectedRows] = useState<Row<MappedComplaint>[]>([])
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [assignDepartment, setAssignDepartment] = useState('')
+  const [assigning, setAssigning] = useState(false)
+  const [departments, setDepartments] = useState<string[]>([])
 
   const role = user?.role ?? 'AGENT'
   const tabs = role === 'AGENT' ? AGENT_TABS : SUPERVISOR_TABS
@@ -244,7 +257,11 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
       setLoading(true)
       setError(null)
       try {
-        const response = await api.listComplaints({ limit: 100 })
+        const filters: Record<string, unknown> = { limit: 100 }
+        if (activeItem === 'My Queue' && user?.email) {
+          filters.assigned_to = user.email
+        }
+        const response = await api.listComplaints(filters)
         if (cancelled) return
         setComplaints(response.complaints.map(mapComplaint))
       } catch (err) {
@@ -256,7 +273,37 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
     }
     fetchComplaints()
     return () => { cancelled = true }
+  }, [activeItem, user?.email])
+
+  useEffect(() => {
+    api.listDepartments().then((res) => setDepartments(res.departments || [])).catch(() => setDepartments([]))
   }, [])
+
+  const handleAssign = async () => {
+    const ids = selectedRows.map((r) => r.original.fullId)
+    if (ids.length === 0) return
+    setAssigning(true)
+    try {
+      const dept = assignDepartment || undefined
+      const result = await api.autoAssign(ids, dept)
+      toast({
+        title: 'Assignment complete',
+        description: `${result.assigned} assigned, ${result.failed} failed.`,
+      })
+      setSelectedRows([])
+      setAssignDialogOpen(false)
+      if (result.assigned > 0) {
+        const response = await api.listComplaints(
+          activeItem === 'My Queue' && user?.email ? { limit: 100, assigned_to: user.email } : { limit: 100 }
+        )
+        setComplaints(response.complaints.map(mapComplaint))
+      }
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Assign failed', description: err instanceof Error ? err.message : 'Unknown error' })
+    } finally {
+      setAssigning(false)
+    }
+  }
 
   const openQuickView = useCallback((row: MappedComplaint) => {
     setQuickViewRow(row)
@@ -272,15 +319,13 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
         const sev = severityColors[row.original.severity]
         return (
           <div className="flex items-center gap-1.5 min-w-0">
-            <HoverText
-              text={getValue() as string}
-              fullText={row.original.fullId}
-              className="cursor-pointer whitespace-nowrap font-mono text-[11px] font-semibold text-primary"
+            <button
+              type="button"
               onClick={() => navigate('complaint-detail', { id: row.original.fullId })}
-              actions={[
-                { label: 'View details', icon: <ExternalLink className="h-3.5 w-3.5" />, onClick: () => navigate('complaint-detail', { id: row.original.fullId }) },
-              ]}
-            />
+              className="cursor-pointer whitespace-nowrap font-mono text-[11px] font-semibold text-primary hover:underline text-left"
+            >
+              {getValue() as string}
+            </button>
             <Badge variant="outline" className="text-[9px] font-bold px-1.5 py-0" style={{ color: sev.text, backgroundColor: sev.bg, borderColor: 'transparent' }}>
               {row.original.severity}
             </Badge>
@@ -295,14 +340,13 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
       size: 140,
       cell: ({ getValue, row }) => (
         <div className="min-w-0">
-          <HoverText
-            text={getValue() as string}
-            className="text-xs font-semibold text-foreground"
-            actions={[
-              { label: 'View details', icon: <Eye className="h-3.5 w-3.5" />, onClick: () => navigate('complaint-detail', { id: row.original.fullId }) },
-              { label: 'Quick view & reply', icon: <LayoutGrid className="h-3.5 w-3.5" />, onClick: () => openQuickView(row.original) },
-            ]}
-          />
+          <button
+            type="button"
+            onClick={() => navigate('complaint-detail', { id: row.original.fullId })}
+            className="cursor-pointer text-xs font-semibold text-foreground hover:text-primary text-left"
+          >
+            {getValue() as string}
+          </button>
           <div className="text-[10px] text-muted-foreground">{row.original.accountType}</div>
         </div>
       ),
@@ -312,14 +356,13 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
       header: 'Issue Summary',
       size: 200,
       cell: ({ getValue, row }) => (
-        <HoverText
-          text={getValue() as string}
-          className="max-w-[180px] text-xs text-foreground/80"
-          actions={[
-            { label: 'View details', icon: <Eye className="h-3.5 w-3.5" />, onClick: () => navigate('complaint-detail', { id: row.original.fullId }) },
-            { label: 'Quick view & reply', icon: <LayoutGrid className="h-3.5 w-3.5" />, onClick: () => openQuickView(row.original) },
-          ]}
-        />
+        <button
+          type="button"
+          onClick={() => navigate('complaint-detail', { id: row.original.fullId })}
+          className="max-w-[180px] cursor-pointer truncate text-xs text-foreground/80 hover:text-primary text-left"
+        >
+          {getValue() as string}
+        </button>
       ),
     },
     {
@@ -349,14 +392,7 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
           <span className="w-[22px] h-[22px] rounded-full bg-primary/8 border border-primary/15 text-primary flex items-center justify-center text-[9px] font-bold flex-shrink-0">
             {row.original.assignedAvatar}
           </span>
-          <HoverText
-            text={getValue() as string}
-            className="text-[11px] text-muted-foreground"
-            actions={[
-              { label: 'View details', icon: <Eye className="h-3.5 w-3.5" />, onClick: () => navigate('complaint-detail', { id: row.original.fullId }) },
-              { label: 'Quick view & reply', icon: <LayoutGrid className="h-3.5 w-3.5" />, onClick: () => openQuickView(row.original) },
-            ]}
-          />
+          <span className="text-[11px] text-muted-foreground">{getValue() as string}</span>
         </span>
       ),
     },
@@ -435,9 +471,18 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
   const bulkActions = selectedRows.length > 0 ? (
     <div className="flex gap-1.5 items-center">
       <span className="text-[11px] font-semibold text-primary flex items-center pr-1.5">{selectedRows.length} selected</span>
-      {['Assign', 'Escalate', 'Resolve', 'Export'].map((label) => (
-        <Button key={label} variant="outline" size="sm" className="text-[11px] font-semibold h-7" onClick={() => setSelectedRows([])}>{label}</Button>
-      ))}
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-[11px] font-semibold h-7"
+        onClick={() => setAssignDialogOpen(true)}
+        disabled={assigning}
+      >
+        Assign
+      </Button>
+      <Button variant="outline" size="sm" className="text-[11px] font-semibold h-7" onClick={() => setSelectedRows([])}>Escalate</Button>
+      <Button variant="outline" size="sm" className="text-[11px] font-semibold h-7" onClick={() => setSelectedRows([])}>Resolve</Button>
+      <Button variant="outline" size="sm" className="text-[11px] font-semibold h-7" onClick={() => setSelectedRows([])}>Export</Button>
     </div>
   ) : null
 
@@ -629,6 +674,39 @@ export function ComplaintsPage({ defaultSearch = '', sidebarActiveItem }: { defa
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={assignDialogOpen} onOpenChange={setAssignDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Assign {selectedRows.length} complaint{selectedRows.length !== 1 ? 's' : ''}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs font-medium">Department (optional)</Label>
+              <Select value={assignDepartment} onValueChange={setAssignDepartment}>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Auto-detect from complaint type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Auto-detect</SelectItem>
+                  {departments.map((d) => (
+                    <SelectItem key={d} value={d} className="capitalize">{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                AI will find the least-loaded agent in the selected department.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAssign} disabled={assigning}>
+              {assigning ? 'Assigning...' : 'Auto Assign'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardShell>
   )
 }

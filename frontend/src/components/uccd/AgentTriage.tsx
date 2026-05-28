@@ -50,7 +50,7 @@ const sideSignals = [
 
 export function AgentTriage() {
   return (
-    <section id="features" className="relative overflow-hidden py-20">
+    <section id="features" className="relative overflow-hidden py-20 scroll-mt-24">
       <Container className="flex flex-col items-center gap-12">
         <SectionTitle
           title="Multi-agent triage for real complaint work"

@@ -71,11 +71,15 @@ export function SettingsPage() {
 
   useEffect(() => {
     let cancelled = false
+    const filters: Record<string, unknown> = { limit: 100 }
+    if (user?.role === 'AGENT' && user?.email) {
+      filters.assigned_to = user.email
+    }
     Promise.allSettled([
       api.getKpis(),
       api.getCategories(),
       api.getChannels(),
-      api.listComplaints({ limit: 100 }),
+      api.listComplaints(filters),
     ]).then(([kpiRes, categoryRes, channelRes, complaintsRes]) => {
       if (cancelled) return
       if (kpiRes.status === 'fulfilled') setKpis(kpiRes.value)
@@ -89,7 +93,7 @@ export function SettingsPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [user?.role, user?.email])
 
   const accountStats = useMemo(() => {
     const assigned = complaints.filter((complaint) => complaint.assigned_to === user?.user_id).length

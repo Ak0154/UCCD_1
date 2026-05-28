@@ -7,6 +7,7 @@ import type {
   ComplaintFilters,
   ComplaintHistoryResponse,
   ComplaintListResponse,
+  CustomerProfile,
   DashboardKpis,
   DraftResponse,
   LoginRequest,
@@ -165,6 +166,10 @@ export const api = {
     return request<Complaint>(`/api/v1/complaints/${id}`)
   },
 
+  getCustomerProfile(customerId: string) {
+    return request<CustomerProfile>(`/api/v1/complaints/customer/${encodeURIComponent(customerId)}`)
+  },
+
   getComplaintHistory(id: string) {
     return request<ComplaintHistoryResponse>(`/api/v1/complaints/${id}/history`)
   },
@@ -185,6 +190,17 @@ export const api = {
 
   assign(id: string) {
     return request<Complaint>(`/api/v1/complaints/${id}/assign`, { method: 'PUT' })
+  },
+
+  autoAssign(complaintIds: string[], department?: string) {
+    return request<{ assigned: number; failed: number; assignments: Record<string, string | null> }>(
+      '/api/v1/complaints/auto-assign',
+      { method: 'POST', body: JSON.stringify({ complaint_ids: complaintIds, department }) },
+    )
+  },
+
+  listDepartments() {
+    return request<{ departments: string[] }>('/api/v1/complaints/departments')
   },
 
   getKpis() {

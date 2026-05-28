@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from '@/hooks/use-router'
 import { api } from '@/lib/api-client'
-import type { Complaint } from '@/types/complaint'
+import type { Complaint, CustomerProfile } from '@/types/complaint'
 import { DashboardShell } from '@/components/dashboard-shell'
 import type { ShellTab } from '@/components/dashboard-shell'
 import { AppBreadcrumb } from '@/components/app-breadcrumb'
@@ -12,18 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { HoverText } from '@/components/ui/hover-text'
-import {
-  Timeline,
-  TimelineContent,
-  TimelineDate,
-  TimelineHeader,
-  TimelineIndicator,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineTitle,
-} from '@/components/ui/timeline'
-import { AlertTriangle, CheckCircle2, ExternalLink, Loader2, Search, UserRound } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Loader2, MessageSquare, Search, Shield, Star, UserRound } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
 const AGENT_TABS: ShellTab[] = [
@@ -32,10 +21,6 @@ const AGENT_TABS: ShellTab[] = [
   { label: 'AI Drafts', route: 'ai-drafts' },
   { label: '360 View', route: '360-view' },
 ]
-
-function getCustomerLabel(complaint?: Complaint | null) {
-  return complaint?.customer_name || complaint?.customer_id || 'Unknown Customer'
-}
 
 function getInitials(name: string) {
   return name
@@ -46,74 +31,113 @@ function getInitials(name: string) {
     .join('') || 'CU'
 }
 
-function formatDate(value?: string | null) {
+function formatTimestamp(value?: string | null) {
   if (!value) return 'N/A'
-  return new Date(value).toLocaleString()
+  const d = new Date(value)
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-function complaintTimestamp(complaint: Complaint) {
-  const timestamp = complaint.created_at ? new Date(complaint.created_at).getTime() : 0
-  return Number.isFinite(timestamp) ? timestamp : 0
+function formatDateTime(value?: string | null) {
+  if (!value) return 'N/A'
+  const d = new Date(value)
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-function sortComplaintsChronologically(complaints: Complaint[]) {
-  return [...complaints].sort((a, b) => complaintTimestamp(a) - complaintTimestamp(b))
+function slaTimeLeft(deadline?: string | null) {
+  if (!deadline) return null
+  const diff = new Date(deadline).getTime() - Date.now()
+  if (diff <= 0) return 'Breached'
+  const hours = Math.floor(diff / 3600000)
+  const mins = Math.floor((diff % 3600000) / 60000)
+  if (hours > 0) return `${hours}h ${mins}m left`
+  return `${mins}m left`
 }
 
 function statusLabel(status: string) {
   return status.replace(/_/g, ' ')
 }
 
-function issueLabel(complaint: Complaint) {
-  return complaint.complaint_type || complaint.intent || complaint.product_code || 'Customer complaint'
+function statusColor(status: string) {
+  if (status === 'resolved') return 'bg-success-muted text-success'
+  if (status === 'escalated') return 'bg-destructive/10 text-destructive'
+  if (status === 'in_progress') return 'bg-primary/10 text-primary'
+  return 'bg-muted text-muted-foreground'
 }
 
-function issueDescription(complaint: Complaint) {
-  const parts = [
-    complaint.complaint_type && `Category: ${complaint.complaint_type}`,
-    complaint.intent && `Need: ${complaint.intent}`,
-    complaint.product_code && `Product/service: ${complaint.product_code}`,
-  ].filter(Boolean)
-
-  return parts.length ? parts.join(' · ') : 'Customer complaint'
+function issueDescription(item: { complaint_type?: string | null; intent?: string | null; product_code?: string | null }) {
+  return [item.complaint_type, item.intent, item.product_code].filter(Boolean).join(' · ') || 'General complaint'
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const className =
-    status === 'resolved' ? 'bg-success-muted text-success'
-    : status === 'escalated' ? 'bg-destructive/10 text-destructive'
-    : 'bg-primary/10 text-primary'
-
-  return <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${className}`}>{statusLabel(status)}</span>
-}
-
-function InfoRow({ label, value }: { label: string; value: string | number }) {
+function StatCard({ label, value, icon, sub }: { label: string; value: string | number; icon?: React.ReactNode; sub?: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b py-2 last:border-b-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium text-foreground">{value || 'N/A'}</span>
+    <div className="rounded-lg border bg-card px-4 py-3">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-bold text-foreground">{value}</div>
+      {sub && <div className="mt-0.5 text-[10px] text-muted-foreground">{sub}</div>}
     </div>
+  )
+}
+
+function ComplaintTimelineItem({
+  item,
+  onClick,
+}: {
+  item: CustomerProfile['complaint_history'][number]
+  onClick: () => void
+}) {
+  const sla = slaTimeLeft(item.sla_deadline)
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full cursor-pointer items-start gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/50"
+    >
+      <div className="mt-0.5 shrink-0">
+        <div className={`h-2.5 w-2.5 rounded-full ${item.status === 'resolved' ? 'bg-success' : item.sla_breached ? 'bg-destructive' : 'bg-primary'}`} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">{formatTimestamp(item.created_at)}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusColor(item.status)}`}>
+            {statusLabel(item.status)}
+          </span>
+          {item.regulatory_flag && (
+            <span className="rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-semibold text-warning">Regulatory</span>
+          )}
+        </div>
+        <div className="mt-1 text-sm font-medium text-foreground">{issueDescription(item)}</div>
+        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.raw_text}</p>
+        {sla && (
+          <div className={`mt-1 flex items-center gap-1 text-[10px] font-medium ${sla === 'Breached' ? 'text-destructive' : 'text-muted-foreground'}`}>
+            <Clock className="h-3 w-3" />
+            {sla}
+          </div>
+        )}
+      </div>
+    </button>
   )
 }
 
 export function ThreeSixtyViewPage() {
   const { navigate } = useRouter()
-  const [customerId, setCustomerId] = useState('')
-  const [recentComplaints, setRecentComplaints] = useState<Complaint[]>([])
-  const [complaints, setComplaints] = useState<Complaint[]>([])
-  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [profile, setProfile] = useState<CustomerProfile | null>(null)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [searched, setSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedTimelineItem, setSelectedTimelineItem] = useState<CustomerProfile['complaint_history'][number] | null>(null)
+  const [recentComplaints, setRecentComplaints] = useState<Complaint[]>([])
 
   useEffect(() => {
     let cancelled = false
-
-    async function loadRecentCustomers() {
+    async function loadRecent() {
       setInitialLoading(true)
       try {
-        const response = await api.listComplaints({ limit: 100 })
+        const response = await api.listComplaints({ limit: 50 })
         if (!cancelled) setRecentComplaints(response.complaints || [])
       } catch {
         if (!cancelled) setRecentComplaints([])
@@ -121,88 +145,58 @@ export function ThreeSixtyViewPage() {
         if (!cancelled) setInitialLoading(false)
       }
     }
-
-    loadRecentCustomers()
+    loadRecent()
     return () => { cancelled = true }
   }, [])
 
   const customerSuggestions = useMemo(() => {
-    const byCustomer = new Map<string, Complaint>()
-    recentComplaints.forEach((complaint) => {
-      if (!byCustomer.has(complaint.customer_id)) byCustomer.set(complaint.customer_id, complaint)
-    })
-    return Array.from(byCustomer.values()).slice(0, 5)
+    const seen = new Set<string>()
+    return recentComplaints
+      .filter((c) => {
+        if (seen.has(c.customer_id)) return false
+        seen.add(c.customer_id)
+        return true
+      })
+      .slice(0, 5)
   }, [recentComplaints])
 
-  const customerSummary = useMemo(() => ({
-    open: complaints.filter((complaint) => complaint.status !== 'resolved').length,
-    escalated: complaints.filter((complaint) => complaint.status === 'escalated').length,
-    risk: complaints.filter((complaint) => complaint.sla_breached || complaint.regulatory_flag).length,
-  }), [complaints])
-
-  const chronologicalComplaints = useMemo(() => sortComplaintsChronologically(complaints), [complaints])
-  const timelineComplaints = useMemo(() => [...chronologicalComplaints].reverse(), [chronologicalComplaints])
-  const selectedStep = Math.max(1, chronologicalComplaints.findIndex((complaint) => complaint.id === selectedComplaint?.id) + 1)
-
-  const searchCustomer = async (value = customerId) => {
-    const term = value.trim()
+  const searchCustomer = useCallback(async (value?: string) => {
+    const term = (value ?? searchTerm).trim()
     if (!term) return
 
-    setCustomerId(term)
     setLoading(true)
     setError(null)
     setSearched(true)
+    setSearchTerm(term)
 
     try {
-      const exactResponse = await api.listComplaints({ customer_id: term, limit: 100 })
-      const matchingComplaints = exactResponse.complaints?.length
-        ? exactResponse.complaints
-        : (await api.listComplaints({ search: term, limit: 100 })).complaints || []
-      const chronologicalMatches = sortComplaintsChronologically(matchingComplaints)
-
-      setComplaints(chronologicalMatches)
-      setSelectedComplaint(chronologicalMatches[chronologicalMatches.length - 1] ?? null)
-      if (matchingComplaints.length === 0) setError(`No customer history found for "${term}".`)
+      const result = await api.getCustomerProfile(term)
+      setProfile(result)
+      setSelectedTimelineItem(null)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load customer history')
-      setComplaints([])
-      setSelectedComplaint(null)
+      if (err instanceof Error && err.message.includes('404')) {
+        setError(`No complaints found for "${term}". Try searching with a different customer ID.`)
+      } else {
+        setError(err instanceof Error ? err.message : 'Unable to load customer history')
+      }
+      setProfile(null)
+      setSelectedTimelineItem(null)
     } finally {
       setLoading(false)
     }
-  }
+  }, [searchTerm])
 
-  const handleEscalate = async () => {
-    if (!selectedComplaint) {
-      toast({ variant: 'destructive', title: 'No complaint selected', description: 'Select a complaint before escalating.' })
-      return
-    }
-
+  const handleEscalate = useCallback(async () => {
+    if (!selectedTimelineItem) return
     try {
-      await api.updateStatus(selectedComplaint.id, 'escalated')
-      const updatedComplaint = { ...selectedComplaint, status: 'escalated' }
-      setSelectedComplaint(updatedComplaint)
-      setComplaints((prev) => prev.map((complaint) => complaint.id === selectedComplaint.id ? updatedComplaint : complaint))
-      toast({ title: 'Case escalated', description: 'The selected complaint is now marked as escalated.' })
+      await api.updateStatus(selectedTimelineItem.complaint_id, 'escalated')
+      toast({ title: 'Case escalated', description: 'The selected complaint has been escalated.' })
     } catch (err) {
       toast({ variant: 'destructive', title: 'Escalation failed', description: err instanceof Error ? err.message : 'Unknown error' })
     }
-  }
+  }, [selectedTimelineItem])
 
-  const escalateComplaint = async (complaint: Complaint) => {
-    try {
-      await api.updateStatus(complaint.id, 'escalated')
-      const updatedComplaint = { ...complaint, status: 'escalated' }
-      setSelectedComplaint((current) => current?.id === complaint.id ? updatedComplaint : current)
-      setComplaints((prev) => prev.map((item) => item.id === complaint.id ? updatedComplaint : item))
-      toast({ title: 'Case escalated', description: 'The timeline item is now marked as escalated.' })
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'Escalation failed', description: err instanceof Error ? err.message : 'Unknown error' })
-    }
-  }
-
-  const firstComplaint = complaints[0]
-  const customerName = getCustomerLabel(firstComplaint)
+  const customerName = profile?.customer_name || 'Unknown Customer'
 
   return (
     <DashboardShell
@@ -216,8 +210,8 @@ export function ThreeSixtyViewPage() {
           <CardContent className="p-4">
             <form
               className="flex flex-col gap-3 lg:flex-row lg:items-end"
-              onSubmit={(event) => {
-                event.preventDefault()
+              onSubmit={(e) => {
+                e.preventDefault()
                 searchCustomer()
               }}
             >
@@ -229,29 +223,29 @@ export function ThreeSixtyViewPage() {
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="customer-search"
-                    value={customerId}
-                    onChange={(event) => setCustomerId(event.target.value)}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     placeholder="Customer ID, name, email, phone, or account"
                     className="pl-9"
                   />
                 </div>
               </div>
-              <Button type="submit" disabled={loading || !customerId.trim()} className="min-w-32">
+              <Button type="submit" disabled={loading || !searchTerm.trim()} className="min-w-32">
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Search'}
               </Button>
             </form>
 
             {customerSuggestions.length > 0 && (
               <div className="mt-4 flex flex-wrap gap-2">
-                {customerSuggestions.map((complaint) => (
+                {customerSuggestions.map((c) => (
                   <button
-                    key={complaint.customer_id}
+                    key={c.customer_id}
                     type="button"
-                    onClick={() => searchCustomer(complaint.customer_id)}
+                    onClick={() => searchCustomer(c.customer_id)}
                     className="rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
                   >
-                    {getCustomerLabel(complaint)}
-                    <span className="ml-2 font-mono text-[10px]">{complaint.customer_id}</span>
+                    {c.customer_name || c.customer_id}
+                    <span className="ml-2 font-mono text-[10px]">{c.customer_id}</span>
                   </button>
                 ))}
               </div>
@@ -262,8 +256,8 @@ export function ThreeSixtyViewPage() {
         {!searched && !error && (
           <div className="flex min-h-[320px] items-center justify-center rounded-lg border bg-card">
             <div className="flex flex-col items-center text-center text-muted-foreground">
-              {initialLoading ? <Loader2 aria-hidden="true" className="mb-4 h-10 w-10 animate-spin" /> : <UserRound aria-hidden="true" className="mb-4 h-10 w-10" />}
-              <div className="mb-2 text-base font-semibold text-foreground">Search a customer to open their 360 view</div>
+              {initialLoading ? <Loader2 className="mb-4 h-10 w-10 animate-spin" /> : <UserRound className="mb-4 h-10 w-10" />}
+              <div className="mb-2 text-base font-semibold text-foreground">Search a customer to open their 360° view</div>
               <div className="max-w-sm text-sm">Pick a recent customer chip or search by ID, contact, or account details.</div>
             </div>
           </div>
@@ -272,11 +266,11 @@ export function ThreeSixtyViewPage() {
         {error && (
           <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-5 text-sm text-destructive">
             <div className="mb-3 font-semibold">{error}</div>
-            <Button variant="outline" onClick={() => searchCustomer()} disabled={!customerId.trim() || loading}>Retry</Button>
+            <Button variant="outline" onClick={() => searchCustomer()} disabled={!searchTerm.trim() || loading}>Retry</Button>
           </div>
         )}
 
-        {searched && complaints.length > 0 && !error && (
+        {profile && !error && (
           <>
             <div className="flex flex-col gap-4 rounded-lg border bg-card px-5 py-4 lg:flex-row lg:items-center">
               <Avatar className="h-14 w-14">
@@ -285,94 +279,138 @@ export function ThreeSixtyViewPage() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="m-0 text-xl font-bold text-foreground">{customerName}</h2>
-                  <span className="font-mono text-xs text-muted-foreground">{firstComplaint?.customer_id}</span>
-                  {firstComplaint?.vip_customer && <Badge className="text-[10px] font-bold">VIP</Badge>}
+                  <span className="font-mono text-xs text-muted-foreground">{profile.customer_id}</span>
+                  {profile.vip_customer && (
+                    <Badge className="gap-1 text-[10px] font-bold">
+                      <Star className="h-3 w-3" /> VIP
+                    </Badge>
+                  )}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
-                  {firstComplaint?.customer_email && <Badge variant="secondary">{firstComplaint.customer_email}</Badge>}
-                  {firstComplaint?.customer_phone && <Badge variant="secondary">{firstComplaint.customer_phone}</Badge>}
-                  {firstComplaint?.account_number && <Badge variant="secondary">{firstComplaint.account_number}</Badge>}
+                  {profile.customer_email && <Badge variant="secondary">{profile.customer_email}</Badge>}
+                  {profile.customer_phone && <Badge variant="secondary">{profile.customer_phone}</Badge>}
+                  {profile.account_number && <Badge variant="secondary">{profile.account_number}</Badge>}
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-lg border bg-background px-4 py-2"><div className="text-lg font-bold">{complaints.length}</div><div className="text-[10px] uppercase text-muted-foreground">Total</div></div>
-                <div className="rounded-lg border bg-background px-4 py-2"><div className="text-lg font-bold">{customerSummary.open}</div><div className="text-[10px] uppercase text-muted-foreground">Open</div></div>
-                <div className="rounded-lg border bg-background px-4 py-2"><div className="text-lg font-bold">{customerSummary.risk}</div><div className="text-[10px] uppercase text-muted-foreground">Risk</div></div>
+                <div className="rounded-lg border bg-background px-4 py-2">
+                  <div className="text-lg font-bold">{profile.total_complaints}</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">Total</div>
+                </div>
+                <div className="rounded-lg border bg-background px-4 py-2">
+                  <div className="text-lg font-bold">{profile.open_complaints}</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">Open</div>
+                </div>
+                <div className="rounded-lg border bg-background px-4 py-2">
+                  <div className="text-lg font-bold">{profile.sla_breach_count}</div>
+                  <div className="text-[10px] uppercase text-muted-foreground">Breaches</div>
+                </div>
               </div>
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <StatCard
+                label="Avg Resolution"
+                value={profile.avg_resolution_hours ? `${profile.avg_resolution_hours}h` : 'N/A'}
+                icon={<Clock className="h-3.5 w-3.5" />}
+              />
+              <StatCard
+                label="Most Common Issue"
+                value={profile.most_common_issue || 'N/A'}
+                icon={<MessageSquare className="h-3.5 w-3.5" />}
+              />
+              <StatCard
+                label="Preferred Channel"
+                value={profile.preferred_channel || 'N/A'}
+                icon={<Search className="h-3.5 w-3.5" />}
+              />
+              <StatCard
+                label="Resolved"
+                value={`${profile.resolved_complaints}/${profile.total_complaints}`}
+                icon={<CheckCircle2 className="h-3.5 w-3.5" />}
+                sub={
+                  profile.total_complaints > 0
+                    ? `${Math.round((profile.resolved_complaints / profile.total_complaints) * 100)}% resolution rate`
+                    : undefined
+                }
+              />
+            </div>
+
+            {(profile.viral_risk_score != null && profile.viral_risk_score > 0) || profile.regulatory_flagged || profile.repeat_complaint ? (
+              <Card className="border-warning/30 bg-warning-muted/20">
+                <CardContent className="flex flex-wrap items-center gap-4 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-warning">
+                    <AlertTriangle className="h-4 w-4" />
+                    Risk Indicators
+                  </div>
+                  {profile.viral_risk_score != null && profile.viral_risk_score > 0 && (
+                    <Badge variant="outline" className="border-warning/50 text-warning">
+                      Viral risk: {(profile.viral_risk_score * 100).toFixed(0)}%
+                    </Badge>
+                  )}
+                  {profile.regulatory_flagged && (
+                    <Badge className="gap-1 bg-warning-muted text-warning">
+                      <Shield className="h-3 w-3" /> Regulatory flagged
+                    </Badge>
+                  )}
+                  {profile.repeat_complaint && (
+                    <Badge variant="outline" className="border-warning/50 text-warning">
+                      Repeat complainant
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {profile.active_complaints.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Active Complaints ({profile.active_complaints.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {profile.active_complaints.map((item) => {
+                    const sla = slaTimeLeft(item.sla_deadline)
+                    return (
+                      <div key={item.complaint_id} className="flex items-start justify-between gap-3 rounded-lg border bg-background p-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs text-muted-foreground">{item.complaint_id.slice(0, 8)}</span>
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusColor(item.status)}`}>
+                              {statusLabel(item.status)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-foreground">{issueDescription(item)}</p>
+                          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{item.raw_text}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {sla && (
+                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${sla === 'Breached' ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+                              {sla}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+            )}
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
               <Card>
                 <CardHeader>
-                  <CardTitle>Complaint Timeline</CardTitle>
+                  <CardTitle>Complaint History ({profile.complaint_history.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Timeline defaultValue={selectedStep}>
-                    {timelineComplaints.map((complaint, index) => {
-                      const isSelected = selectedComplaint?.id === complaint.id
-                      const chronologicalStep = timelineComplaints.length - index
-
-                      return (
-                        <HoverText
-                          key={complaint.id}
-                          text={(
-                            <TimelineItem
-                              step={chronologicalStep}
-                              className={`cursor-pointer rounded-lg pr-3 transition-colors ${isSelected ? 'bg-primary/5' : 'hover:bg-muted/50'}`}
-                              onClick={() => setSelectedComplaint(complaint)}
-                              onKeyDown={(event) => {
-                                if (event.key === 'Enter' || event.key === ' ') {
-                                  event.preventDefault()
-                                  setSelectedComplaint(complaint)
-                                }
-                              }}
-                              role="button"
-                              tabIndex={0}
-                            >
-                              <TimelineHeader className="pt-2">
-                                <TimelineSeparator />
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <TimelineDate>{formatDate(complaint.created_at)}</TimelineDate>
-                                  <StatusBadge status={complaint.status} />
-                                  {complaint.sla_breached && <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive">SLA breached</span>}
-                                  {complaint.regulatory_flag && <span className="rounded-full bg-warning-muted px-2 py-0.5 text-[10px] font-semibold text-warning">Regulatory</span>}
-                                </div>
-                                <TimelineTitle className={isSelected ? 'text-primary' : undefined}>
-                                  {issueLabel(complaint)}
-                                </TimelineTitle>
-                                <div className="text-xs text-muted-foreground">{issueDescription(complaint)}</div>
-                                <TimelineIndicator />
-                              </TimelineHeader>
-                              <TimelineContent className="pb-2">
-                                <p className="line-clamp-2 text-left hover:text-foreground">{complaint.raw_text}</p>
-                              </TimelineContent>
-                            </TimelineItem>
-                          )}
-                          fullText={complaint.raw_text}
-                          copyText={complaint.raw_text}
-                          contentClassName="w-96"
-                          triggerAsChild
-                          actions={[
-                            {
-                              label: 'Select',
-                              icon: <CheckCircle2 className="h-3.5 w-3.5" />,
-                              onClick: () => setSelectedComplaint(complaint),
-                            },
-                            {
-                              label: 'View details',
-                              icon: <ExternalLink className="h-3.5 w-3.5" />,
-                              onClick: () => navigate('complaint-detail', { id: complaint.id }),
-                            },
-                            {
-                              label: 'Escalate',
-                              icon: <AlertTriangle className="h-3.5 w-3.5" />,
-                              onClick: () => escalateComplaint(complaint),
-                            },
-                          ]}
-                        />
-                      )
-                    })}
-                  </Timeline>
+                  <div className="space-y-3">
+                    {profile.complaint_history.map((item) => (
+                      <ComplaintTimelineItem
+                        key={item.complaint_id}
+                        item={item}
+                        onClick={() => setSelectedTimelineItem(item)}
+                      />
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -381,48 +419,67 @@ export function ThreeSixtyViewPage() {
                   <CardTitle>Selected Case</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {selectedComplaint ? (
+                  {selectedTimelineItem ? (
                     <>
                       <div>
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">{selectedComplaint.id}</span>
-                          <StatusBadge status={selectedComplaint.status} />
+                          <span className="font-mono text-xs text-muted-foreground">{selectedTimelineItem.complaint_id.slice(0, 8)}</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusColor(selectedTimelineItem.status)}`}>
+                            {statusLabel(selectedTimelineItem.status)}
+                          </span>
                         </div>
-                        <p className="text-sm leading-relaxed text-foreground/85">{selectedComplaint.raw_text}</p>
+                        <p className="text-sm leading-relaxed text-foreground/85">{selectedTimelineItem.raw_text}</p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          {formatDateTime(selectedTimelineItem.created_at)}
+                          {selectedTimelineItem.resolved_at && ` → resolved ${formatDateTime(selectedTimelineItem.resolved_at)}`}
+                        </p>
                       </div>
 
                       <div className="rounded-lg border bg-muted/30 px-3">
-                        <InfoRow label="Channel" value={selectedComplaint.channel || 'N/A'} />
-                        <InfoRow label="Issue category" value={issueLabel(selectedComplaint)} />
-                        <InfoRow label="Customer need" value={selectedComplaint.intent || 'N/A'} />
-                        <InfoRow label="Assigned" value={selectedComplaint.assigned_to || 'Unassigned'} />
-                        <InfoRow label="SLA tier" value={selectedComplaint.sla_tier || 'N/A'} />
+                        <div className="flex items-start justify-between gap-4 border-b py-2">
+                          <span className="text-xs text-muted-foreground">Channel</span>
+                          <span className="text-right text-sm font-medium">{selectedTimelineItem.channel || 'N/A'}</span>
+                        </div>
+                        <div className="flex items-start justify-between gap-4 border-b py-2">
+                          <span className="text-xs text-muted-foreground">Issue</span>
+                          <span className="text-right text-sm font-medium">{issueDescription(selectedTimelineItem)}</span>
+                        </div>
+                        <div className="flex items-start justify-between gap-4 border-b py-2">
+                          <span className="text-xs text-muted-foreground">Assigned</span>
+                          <span className="text-right text-sm font-medium">{selectedTimelineItem.assigned_to || 'Unassigned'}</span>
+                        </div>
+                        <div className="flex items-start justify-between gap-4 py-2">
+                          <span className="text-xs text-muted-foreground">SLA</span>
+                          <span className={`text-right text-sm font-medium ${selectedTimelineItem.sla_breached ? 'text-destructive' : ''}`}>
+                            {selectedTimelineItem.sla_breached ? 'Breached' : slaTimeLeft(selectedTimelineItem.sla_deadline) || 'N/A'}
+                          </span>
+                        </div>
                       </div>
 
-                      {(selectedComplaint.ai_draft || selectedComplaint.root_cause) && (
+                      {(selectedTimelineItem.ai_draft || selectedTimelineItem.root_cause) && (
                         <div className="rounded-lg border bg-card p-3">
-                          {selectedComplaint.root_cause && (
+                          {selectedTimelineItem.root_cause && (
                             <>
                               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Root cause</div>
-                              <p className="mb-3 text-sm text-foreground/85">{selectedComplaint.root_cause}</p>
+                              <p className="mb-3 text-sm text-foreground/85">{selectedTimelineItem.root_cause}</p>
                             </>
                           )}
-                          {selectedComplaint.ai_draft && (
+                          {selectedTimelineItem.ai_draft && (
                             <>
-                              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Latest draft</div>
-                              <p className="line-clamp-5 text-sm leading-relaxed text-muted-foreground">{selectedComplaint.ai_draft}</p>
+                              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">AI draft</div>
+                              <p className="line-clamp-5 text-sm text-muted-foreground">{selectedTimelineItem.ai_draft}</p>
                             </>
                           )}
                         </div>
                       )}
 
                       <div className="flex gap-2">
-                        <Button variant="outline" className="flex-1" onClick={() => setSelectedComplaint(null)}>Clear</Button>
+                        <Button variant="outline" className="flex-1" onClick={() => setSelectedTimelineItem(null)}>Clear</Button>
                         <Button className="flex-1" variant="destructive" onClick={handleEscalate}>Escalate</Button>
                       </div>
                     </>
                   ) : (
-                    <div className="py-8 text-center text-sm text-muted-foreground">Select a timeline item.</div>
+                    <div className="py-8 text-center text-sm text-muted-foreground">Select a timeline item to view details.</div>
                   )}
                 </CardContent>
               </Card>

@@ -220,7 +220,7 @@ export function ResolutionFlow() {
   }, [activeStep, seed])
 
   return (
-    <section id="workflow" className="relative overflow-hidden border-t border-border py-24">
+    <section id="workflow" className="relative overflow-hidden border-t border-border py-24 scroll-mt-24">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" />
 
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>

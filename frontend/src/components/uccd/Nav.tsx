@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Container, PrimaryButton } from './ui'
 import { Switch } from '@/components/ui/switch'
@@ -35,6 +35,17 @@ export function Nav() {
     storeAppearancePreferences(nextTheme, preferences.font)
   }
 
+  const handleNavClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.startsWith('#')) {
+      e.preventDefault()
+      window.history.pushState(null, '', href)
+      const target = document.querySelector(href)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+  }, [])
+
   return (
     <header className="fixed top-0 z-50 w-full border-b border-border/80 bg-bg/80 backdrop-blur-md">
       <Container className="flex h-16 items-center justify-between">
@@ -51,7 +62,8 @@ export function Nav() {
             <a
               key={l.href}
               href={l.href}
-              className="text-sm text-muted transition-colors hover:text-text"
+              onClick={(e) => handleNavClick(e, l.href)}
+              className="text-sm text-muted transition-colors hover:text-text cursor-pointer"
             >
               {l.label}
             </a>

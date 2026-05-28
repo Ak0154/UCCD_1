@@ -1,0 +1,53 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - heading "Your Complaints Resolved Faster" [level=1] [ref=e12]
+          - paragraph [ref=e13]: UCCD OmniResol processes every complaint through 7 AI agents for instant triage and routing.
+        - img [ref=e19]
+      - generic [ref=e25]:
+        - img [ref=e29]
+        - generic [ref=e33]:
+          - heading "SLA Breach Alert" [level=2] [ref=e34]
+          - paragraph [ref=e35]: Real-time breach prediction notifies your team before deadlines are missed. No complaint goes unresolved — automatic escalation keeps every case on track.
+      - paragraph [ref=e37]: Your data is secured with enterprise-grade encryption. All complaint records are fully audit-trailed and compliant with regulatory standards.
+      - button "Learn About OmniResol Platform" [ref=e38]
+    - generic [ref=e41]:
+      - heading "Welcome to UCCD" [level=2] [ref=e42]
+      - generic [ref=e43]:
+        - generic [ref=e44]: POWERED BY OMNIRESOL
+        - generic [ref=e45]:
+          - generic [ref=e46]:
+            - img [ref=e47]
+            - text: UCCD
+          - generic [ref=e51]:
+            - img [ref=e52]
+            - text: OmniResol
+      - tablist [ref=e56]:
+        - tab "Agent" [selected] [ref=e57]:
+          - img
+          - text: Agent
+        - tab "Supervisor" [ref=e58]:
+          - img
+          - text: Supervisor
+        - tab "Compliance" [ref=e59]:
+          - img
+          - text: Compliance
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]: Email Address
+          - generic [ref=e64]:
+            - textbox "Enter your email" [ref=e65]: agent@example.com
+            - img
+        - generic [ref=e66]:
+          - generic [ref=e67]: Password
+          - generic [ref=e68]:
+            - textbox "Enter your password" [ref=e69]: Test@123
+            - button "Show password" [ref=e70] [cursor=pointer]:
+              - img [ref=e71]
+        - button "Sign in as Agent" [ref=e74]
+  - region "Notifications (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=e80] [cursor=pointer]:
+    - img [ref=e81]

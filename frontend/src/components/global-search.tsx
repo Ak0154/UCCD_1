@@ -109,8 +109,13 @@ export function GlobalSearch({ triggerClassName }: { triggerClassName?: string }
 
   React.useEffect(() => {
     if (!open || loaded || loading) return
+    if (!user) return
     setLoading(true)
-    api.listComplaints({ limit: 100 })
+    const filters: Record<string, unknown> = { limit: 100 }
+    if (user.role === 'AGENT' && user.email) {
+      filters.assigned_to = user.email
+    }
+    api.listComplaints(filters)
       .then((response) => {
         setComplaints(response.complaints || [])
         setLoaded(true)
@@ -120,7 +125,7 @@ export function GlobalSearch({ triggerClassName }: { triggerClassName?: string }
         setLoaded(true)
       })
       .finally(() => setLoading(false))
-  }, [loaded, loading, open])
+  }, [loaded, loading, open, user])
 
   const openPage = (route: RoutePath) => {
     setOpen(false)

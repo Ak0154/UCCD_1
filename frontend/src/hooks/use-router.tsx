@@ -59,6 +59,7 @@ const RouterContext = createContext<RouterContextValue | null>(null)
 const DEFAULT_ROUTE: RouterState = { route: 'landing', params: {} }
 
 function getCurrentRoute(): RouterState {
+  if (typeof window === 'undefined') return DEFAULT_ROUTE
   const { pathname, search } = window.location
   const route = PATH_TO_ROUTE[pathname] || 'not-found'
   const params: Record<string, string> = {}
@@ -71,16 +72,19 @@ function getCurrentRoute(): RouterState {
   return { route, params }
 }
 
-export function RouterProvider({ children }: { children: ReactNode }) {
-  const [router, setRouter] = useState<RouterState>(DEFAULT_ROUTE)
-  const [history, setHistory] = useState<RouterState[]>([DEFAULT_ROUTE])
+export function RouterProvider({ children, initialRoute }: { children: ReactNode; initialRoute?: RoutePath }) {
+  const [router, setRouter] = useState<RouterState>(
+    initialRoute ? { route: initialRoute, params: {} } : DEFAULT_ROUTE
+  )
+  const [history, setHistory] = useState<RouterState[]>([
+    initialRoute ? { route: initialRoute, params: {} } : DEFAULT_ROUTE
+  ])
 
   const navigate = useCallback((route: RoutePath, params: Record<string, string> = {}) => {
     const newState: RouterState = { route, params }
     setRouter(newState)
     setHistory((prev) => [...prev, newState])
 
-    // Update browser URL
     let urlPath = ROUTE_TO_PATH[route] || '/not-found'
     if (route === 'complaint-detail' && params.id) {
       urlPath = `/complaint-detail?id=${encodeURIComponent(params.id)}`
@@ -99,11 +103,9 @@ export function RouterProvider({ children }: { children: ReactNode }) {
       setRouter(prevState)
       return newHistory
     })
-    // Use browser back for URL sync
     window.history.back()
   }, [])
 
-  // Listen for browser back/forward buttons
   useEffect(() => {
     const initialRoute = getCurrentRoute()
     setRouter(initialRoute)

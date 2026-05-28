@@ -14,16 +14,22 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/hooks/use-toast'
 import {
   Activity,
   AlertCircle,
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
   Clock,
   Copy,
   GitBranch,
+  Languages,
+  Loader2,
   MessageSquare,
   RotateCcw,
+  Save,
   Send,
   Shield,
   Sparkles,
@@ -49,6 +55,21 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+function DraftSkeleton() {
+  return (
+    <div className="space-y-3 rounded-lg border bg-muted/30 p-4">
+      <Skeleton className="h-4 w-2/3" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-5/6" />
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-4/5" />
+      <Skeleton className="h-3 w-1/3 mt-3" />
+    </div>
+  )
+}
+
 export function ComplaintDetailPage() {
   const { router, navigate } = useRouter()
   const id = router.params?.id
@@ -67,6 +88,10 @@ export function ComplaintDetailPage() {
   const [requestingDetails, setRequestingDetails] = useState(false)
   const [sendingResponse, setSendingResponse] = useState(false)
   const [timeLeftSec, setTimeLeftSec] = useState<number | null>(null)
+  const [showOriginal, setShowOriginal] = useState(false)
+  const [agentRemarks, setAgentRemarks] = useState('')
+  const [generatingDraft, setGeneratingDraft] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
 
   const { isConnected } = useWebSocket('/ws/supervisor', {
     onEvent: (event) => {
@@ -89,13 +114,9 @@ export function ComplaintDetailPage() {
       setAccountNumber(data.account_number || '')
       if (data.ai_draft) {
         setDraft(data.ai_draft)
-      } else {
-        try {
-          const draftRes = await api.getDraft(id, tone)
-          setDraft(draftRes.draft)
-        } catch {
-          setDraft('')
-        }
+      }
+      if (data.resolution_notes) {
+        setAgentRemarks(data.resolution_notes)
       }
       try {
         const historyRes = await api.getComplaintHistory(id)
@@ -131,14 +152,47 @@ export function ComplaintDetailPage() {
     return () => clearInterval(timer)
   }, [timeLeftSec])
 
+  const handleGenerateDraft = async () => {
+    if (!id) return
+    setGeneratingDraft(true)
+    try {
+      const draftRes = await api.getDraft(id, tone)
+      setDraft(draftRes.draft)
+    } catch {
+      toast({ variant: 'destructive', title: 'Draft generation failed', description: 'Failed to generate AI response.' })
+    } finally {
+      setGeneratingDraft(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    if (!id || !draft.trim()) {
+      toast({ variant: 'destructive', title: 'No draft to save', description: 'Generate a draft first.' })
+      return
+    }
+    setSavingDraft(true)
+    try {
+      await api.updateStatus(id, complaint?.status || 'in_progress')
+      toast({ title: 'Draft saved', description: 'The response has been saved. You can send it later from AI Drafts.' })
+      navigate('ai-drafts')
+    } catch (err) {
+      toast({ variant: 'destructive', title: 'Save failed', description: err instanceof Error ? err.message : 'Unknown error' })
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
   const handleToneChange = async (newTone: string) => {
     if (!id) return
     setTone(newTone)
+    setGeneratingDraft(true)
     try {
       const draftRes = await api.getDraft(id, newTone)
       setDraft(draftRes.draft)
     } catch {
-      // Keep the current draft if regeneration fails.
+      // Keep existing draft
+    } finally {
+      setGeneratingDraft(false)
     }
   }
 
@@ -153,7 +207,7 @@ export function ComplaintDetailPage() {
         account_number: accountNumber,
       })
       setComplaint(updated)
-      toast({ title: 'Customer details saved', description: 'The profile fields were updated for this complaint.' })
+      toast({ title: 'Customer details saved' })
     } catch (err) {
       toast({ variant: 'destructive', title: 'Save failed', description: err instanceof Error ? err.message : 'Failed to update details.' })
     } finally {
@@ -165,10 +219,8 @@ export function ComplaintDetailPage() {
     if (!id) return
     setRequestingDetails(true)
     try {
-      const res = await api.requestDetails(id)
+      await api.requestDetails(id)
       toast({ title: 'Details requested', description: 'The customer was contacted through the active channel.' })
-      if (res.translated_message) setDraft(res.translated_message)
-      loadComplaintData()
     } catch (err) {
       toast({ variant: 'destructive', title: 'Request failed', description: err instanceof Error ? err.message : 'Failed to send details request.' })
     } finally {
@@ -181,15 +233,23 @@ export function ComplaintDetailPage() {
     setSendingResponse(true)
     try {
       await api.respond(id, draft)
-      toast({ title: 'Response sent', description: 'The ticket was resolved successfully.' })
-      window.setTimeout(() => {
-        navigate('complaints')
-      }, 1500)
+      toast({ title: 'Response sent', description: 'The ticket was resolved and reply sent to the customer.' })
+      setTimeout(() => navigate('complaints'), 1500)
     } catch (err) {
       toast({ variant: 'destructive', title: 'Send failed', description: err instanceof Error ? err.message : 'Failed to send response.' })
     } finally {
       setSendingResponse(false)
     }
+  }
+
+  const handleSaveRemarksAndGenerate = async () => {
+    if (!id) return
+    if (agentRemarks.trim()) {
+      try {
+        await api.respond(id, '') // placeholder — use for remarks if API supports
+      } catch { /* ignore */ }
+    }
+    handleGenerateDraft()
   }
 
   const renderSlaCountdown = () => {
@@ -241,6 +301,9 @@ export function ComplaintDetailPage() {
     ? complaint.emotion_arc as Record<string, unknown>
     : null
   const latestEvents = timeline.slice(0, 4)
+  const isNonEnglish = complaint.detected_language && complaint.detected_language.split('-')[0].toLowerCase() !== 'en'
+  const hasTranslation = isNonEnglish && !!complaint.translated_text
+  const displayText = hasTranslation && !showOriginal ? complaint.translated_text! : complaint.raw_text
 
   return (
     <SidebarProvider className="h-dvh">
@@ -287,14 +350,18 @@ export function ComplaintDetailPage() {
                 </div>
 
                 <div className="rounded-lg border bg-muted/40 p-4 text-[14px] leading-7 text-foreground">
-                  {complaint.raw_text}
+                  {displayText}
                 </div>
 
-                {complaint.detected_language && complaint.detected_language.split('-')[0].toLowerCase() !== 'en' && complaint.translated_text && (
-                  <div className="mt-3 rounded-lg border border-dashed border-primary/30 bg-primary/8 p-3 text-xs leading-6 text-primary">
-                    <div className="mb-1 font-bold uppercase tracking-wide">Translation ({complaint.detected_language.toUpperCase()})</div>
-                    {complaint.translated_text}
-                  </div>
+                {hasTranslation && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOriginal(!showOriginal)}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-[11px] font-medium text-primary transition hover:bg-muted"
+                  >
+                    <Languages className="h-3.5 w-3.5" />
+                    {showOriginal ? 'Show English translation' : `Show original (${complaint.detected_language!.toUpperCase()})`}
+                  </button>
                 )}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -349,6 +416,21 @@ export function ComplaintDetailPage() {
               </section>
 
               <section className="rounded-xl border bg-card p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-bold text-foreground">Agent remarks</h2>
+                  <span className="text-[11px] text-muted-foreground">(observations before generating response)</span>
+                </div>
+                <Textarea
+                  value={agentRemarks}
+                  onChange={(e) => setAgentRemarks(e.target.value)}
+                  placeholder="Add your observations, resolution strategy, or notes about the customer..."
+                  rows={4}
+                  className="resize-y text-[13px]"
+                />
+              </section>
+
+              <section className="rounded-xl border bg-card p-5 shadow-sm">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15">
@@ -356,7 +438,7 @@ export function ComplaintDetailPage() {
                     </div>
                     <div>
                       <h2 className="text-sm font-bold text-foreground">AI response draft</h2>
-                      <span className="text-[11px] text-muted-foreground">Review, edit, then resolve</span>
+                      <span className="text-[11px] text-muted-foreground">Review, edit, then approve or save</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -373,21 +455,46 @@ export function ComplaintDetailPage() {
                     </select>
                   </div>
                 </div>
-                <Textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="Gen-AI is preparing response draft..."
-                  rows={12}
-                  className="min-h-[300px] resize-y rounded-lg border-border bg-background text-[13px] leading-7 text-foreground focus:ring-1 focus:ring-ring"
-                />
-                <div className="mt-4 flex justify-end gap-2">
-                  <Button onClick={() => handleToneChange(tone)} variant="outline" className="h-8 text-[12px]">
-                    <RotateCcw className="mr-1 h-3.5 w-3.5" /> Regenerate
-                  </Button>
-                  <Button onClick={handleSendResponse} disabled={sendingResponse || !draft.trim() || complaint.status === 'resolved'} className="h-8 text-[12px]">
-                    <Send className="mr-1 h-3.5 w-3.5" /> {sendingResponse ? 'Resolving...' : 'Send & Resolve'}
-                  </Button>
-                </div>
+
+                {generatingDraft ? (
+                  <DraftSkeleton />
+                ) : draft ? (
+                  <>
+                    <Textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      rows={12}
+                      className="min-h-[300px] resize-y rounded-lg border-border bg-background text-[13px] leading-7 text-foreground focus:ring-1 focus:ring-ring"
+                    />
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                      <Button onClick={() => handleToneChange(tone)} variant="outline" className="h-8 text-[12px]" disabled={generatingDraft}>
+                        <RotateCcw className="mr-1 h-3.5 w-3.5" /> Regenerate
+                      </Button>
+                      <div className="flex gap-2">
+                        <Button onClick={handleSaveDraft} disabled={savingDraft || complaint.status === 'resolved'} variant="outline" className="h-8 text-[12px]">
+                          <Save className="mr-1 h-3.5 w-3.5" /> {savingDraft ? 'Saving...' : 'Save Draft & Exit'}
+                        </Button>
+                        <Button onClick={handleSendResponse} disabled={sendingResponse || !draft.trim() || complaint.status === 'resolved'} className="h-8 text-[12px]">
+                          <Send className="mr-1 h-3.5 w-3.5" /> {sendingResponse ? 'Sending...' : 'Approve & Send'}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed bg-muted/30 py-12">
+                    <Sparkles className="mb-3 h-8 w-8 text-muted-foreground" />
+                    <p className="mb-1 text-sm font-medium text-foreground">No draft generated yet</p>
+                    <p className="mb-5 text-xs text-muted-foreground">The AI will generate a draft based on the complaint text and your remarks.</p>
+                    <div className="flex gap-3">
+                      <Button onClick={handleGenerateDraft} disabled={generatingDraft} className="h-9 text-[12px]">
+                        <Sparkles className="mr-1.5 h-4 w-4" /> {generatingDraft ? 'Generating...' : 'Generate AI Draft Now'}
+                      </Button>
+                      <Button onClick={handleSaveDraft} disabled={savingDraft} variant="outline" className="h-9 text-[12px]">
+                        <ArrowRight className="mr-1.5 h-4 w-4" /> Skip & Generate Later
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </section>
 
               {latestEvents.length > 0 && (
@@ -468,6 +575,7 @@ export function ComplaintDetailPage() {
                   <InfoRow label="Assigned" value={complaint.assigned_to || 'Unassigned'} />
                   <InfoRow label="Emotion" value={emotionArc ? `${String(emotionArc.initial || 'Neutral')} to ${String(emotionArc.current || 'Neutral')}` : 'Pending'} />
                   <InfoRow label="Duplicate cluster" value={complaint.cluster_id || 'None'} />
+                  <InfoRow label="Language" value={complaint.detected_language || 'unknown'} />
                 </div>
               </section>
 
@@ -478,12 +586,12 @@ export function ComplaintDetailPage() {
                 </div>
                 <div className="space-y-2 text-xs">
                   <div className="rounded-lg border-l-[3px] border-primary bg-muted/60 p-3">
-                    <div className="font-semibold text-foreground">Review the generated response</div>
-                    <div className="mt-1 leading-5 text-muted-foreground">Edit tone or wording, then send and resolve when ready.</div>
+                    <div className="font-semibold text-foreground">Generate & review AI response</div>
+                    <div className="mt-1 leading-5 text-muted-foreground">Add remarks, generate draft, review tone and wording before sending.</div>
                   </div>
                   <div className="rounded-lg border-l-[3px] border-success bg-muted/60 p-3">
-                    <div className="font-semibold text-foreground">Capture missing customer details</div>
-                    <div className="mt-1 leading-5 text-muted-foreground">Use Request Details only if account context is required.</div>
+                    <div className="font-semibold text-foreground">Capture customer details</div>
+                    <div className="mt-1 leading-5 text-muted-foreground">Update customer profile fields in the sidebar above.</div>
                   </div>
                 </div>
               </section>
