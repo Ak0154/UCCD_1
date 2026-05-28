@@ -21,129 +21,88 @@ def make_channel():
     channel = TwitterChannel()
     channel._client = MagicMock()
     channel._last_seen_tweet_id = None
+    channel._sessions.clear()
     return channel
 
 
-def test_new_mention_creates_complaint():
-    channel = make_channel()
-    tweet = FakeTweet(100, "Bank fraud reported", "john_doe")
-    channel._client.get_mentions.return_value = [tweet]
-
-    with patch("requests.post") as mock_post:
-        mock_post.return_value.status_code = 201
+def _poll_one(channel, mentions):
+    channel._client.get_mentions.return_value = mentions
+    with patch("requests.post"), patch("services.channels.twitter.time.sleep"), \
+         patch.object(channel, "_log_outbound"):
         channel._stop_flag.clear()
         t = threading.Thread(target=channel._poll_mentions, daemon=True)
         t.start()
-        time.sleep(2)
+        time.sleep(1)
         channel._stop_flag.set()
-        t.join(timeout=5)
-
-    mock_post.assert_called_once()
-    call_args = mock_post.call_args
-    payload = call_args[1]["json"]
-    assert payload["channel"] == "twitter"
-    assert payload["customer_id"] == "@john_doe"
-    assert payload["raw_text"] == "Bank fraud reported"
-    assert payload["source_ref"] == "100"
-    assert channel._last_seen_tweet_id == 100
+        t.join(timeout=3)
 
 
-def test_duplicate_mention_is_skipped():
+def test_first_mention_asks_for_complaint():
+    channel = make_channel()
+    _poll_one(channel, [FakeTweet(100, "Hello", "john_doe")])
+
+    assert channel._client.reply.call_count == 1
+    assert "Welcome to Union Bank" in channel._client.reply.call_args[0][0]
+    assert "john_doe" in channel._sessions
+    assert channel._sessions["john_doe"].step == "complaint"
+
+
+def test_handle_mention_complaint_to_name():
+    channel = make_channel()
+    channel._handle_mention("jane", "Hello", 100, "http://localhost:8000")
+    channel._handle_mention("jane", "My card is blocked", 101, "http://localhost:8000")
+    channel._handle_mention("jane", "John Doe", 102, "http://localhost:8000")
+
+    calls = channel._client.reply.call_args_list
+    assert len(calls) == 3
+    assert "full name" in str(calls[1])
+    assert "account number" in str(calls[2])
+    assert channel._sessions["jane"].step == "account_no"
+    assert channel._sessions["jane"].complaint_text == "My card is blocked"
+    assert channel._sessions["jane"].name == "John Doe"
+
+
+def test_handle_mention_full_flow():
+    channel = make_channel()
+
+    with patch("requests.post") as mock_post:
+        mock_post.return_value.status_code = 201
+        mock_post.return_value.json.return_value = {"id": "tw-xyz"}
+
+        channel._handle_mention("user1", "Hi", 1, "http://localhost:8000")
+        channel._handle_mention("user1", "Transfer failed", 2, "http://localhost:8000")
+        channel._handle_mention("user1", "John Doe", 3, "http://localhost:8000")
+        channel._handle_mention("user1", "ACC123", 4, "http://localhost:8000")
+        channel._handle_mention("user1", "9876543210", 5, "http://localhost:8000")
+        channel._handle_mention("user1", "j@example.com", 6, "http://localhost:8000")
+
+    texts = [str(c) for c in channel._client.reply.call_args_list]
+    assert any("full name" in t for t in texts)
+    assert any("account number" in t for t in texts)
+    assert any("phone number" in t for t in texts)
+    assert any("email" in t for t in texts)
+    assert any("Complaint Registered" in t for t in texts)
+    assert channel._sessions["user1"].step == "registered"
+    assert channel._sessions["user1"].complaint_id == "tw-xyz"
+
+
+def test_duplicate_mention_skipped():
     channel = make_channel()
     channel._last_seen_tweet_id = 100
+    _poll_one(channel, [FakeTweet(50, "Old", "old_user")])
 
-    tweet = FakeTweet(50, "Old complaint", "jane_doe")
-    channel._client.get_mentions.return_value = [tweet]
-
-    with patch("requests.post") as mock_post:
-        channel._stop_flag.clear()
-        t = threading.Thread(target=channel._poll_mentions, daemon=True)
-        t.start()
-        time.sleep(2)
-        channel._stop_flag.set()
-        t.join(timeout=5)
-
-    mock_post.assert_not_called()
-    assert channel._last_seen_tweet_id == 100
+    channel._client.reply.assert_not_called()
 
 
-def test_mixed_batch_old_and_new():
+def test_after_registration_no_duplicate():
+    from services.channels.twitter import UserSession
+
     channel = make_channel()
-    channel._last_seen_tweet_id = 100
+    channel._sessions["user2"] = UserSession(
+        step="registered", complaint_text="Old", name="J", account_no="A",
+        phone="P", email="E", complaint_id="existing", screen_name="user2",
+    )
+    channel._handle_mention("user2", "Any msg", 200, "http://localhost:8000")
 
-    old_tweet = FakeTweet(80, "Old", "user_a")
-    same_tweet = FakeTweet(100, "Same", "user_b")
-    new_tweet = FakeTweet(150, "New complaint", "user_c")
-    channel._client.get_mentions.return_value = [old_tweet, same_tweet, new_tweet]
-
-    with patch("requests.post") as mock_post:
-        mock_post.return_value.status_code = 201
-        channel._stop_flag.clear()
-        t = threading.Thread(target=channel._poll_mentions, daemon=True)
-        t.start()
-        time.sleep(2)
-        channel._stop_flag.set()
-        t.join(timeout=5)
-
-    assert mock_post.call_count == 1
-    payload = mock_post.call_args[1]["json"]
-    assert payload["raw_text"] == "New complaint"
-    assert payload["customer_id"] == "@user_c"
-    assert payload["source_ref"] == "150"
-    assert channel._last_seen_tweet_id == 150
-
-
-def test_first_run_with_none_last_seen():
-    channel = make_channel()
-    channel._last_seen_tweet_id = None
-
-    tweet = FakeTweet(1, "First tweet", "first_user")
-    channel._client.get_mentions.return_value = [tweet]
-
-    with patch("requests.post") as mock_post:
-        mock_post.return_value.status_code = 201
-        channel._stop_flag.clear()
-        t = threading.Thread(target=channel._poll_mentions, daemon=True)
-        t.start()
-        time.sleep(2)
-        channel._stop_flag.set()
-        t.join(timeout=5)
-
-    mock_post.assert_called_once()
-    assert channel._last_seen_tweet_id == 1
-
-
-def test_no_mentions_skips_polling():
-    channel = make_channel()
-    channel._client.get_mentions.return_value = []
-
-    with patch("requests.post") as mock_post:
-        channel._stop_flag.clear()
-        t = threading.Thread(target=channel._poll_mentions, daemon=True)
-        t.start()
-        time.sleep(2)
-        channel._stop_flag.set()
-        t.join(timeout=5)
-
-    mock_post.assert_not_called()
-
-
-def test_multiple_new_mentions_all_processed():
-    channel = make_channel()
-    channel._last_seen_tweet_id = 50
-
-    tweet_a = FakeTweet(101, "Complaint A", "user_a")
-    tweet_b = FakeTweet(200, "Complaint B", "user_b")
-    channel._client.get_mentions.return_value = [tweet_a, tweet_b]
-
-    with patch("requests.post") as mock_post:
-        mock_post.return_value.status_code = 201
-        channel._stop_flag.clear()
-        t = threading.Thread(target=channel._poll_mentions, daemon=True)
-        t.start()
-        time.sleep(2)
-        channel._stop_flag.set()
-        t.join(timeout=5)
-
-    assert mock_post.call_count == 2
-    assert channel._last_seen_tweet_id == 200
+    assert channel._client.reply.call_count == 1
+    assert "registered" in channel._client.reply.call_args[0][0].lower()
