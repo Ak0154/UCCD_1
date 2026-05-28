@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import os
 import threading
 import time
 
@@ -25,6 +27,9 @@ class InstagramChannel(BaseChannel):
         self._own_user_id: str | None = None
         self._thread: threading.Thread | None = None
         self._stop_flag = threading.Event()
+        self._last_seen_message_ids: set[str] = set()
+        self._last_seen_file = "instagram_last_seen.json"
+        self._load_last_seen()
 
     def is_configured(self) -> bool:
         return self._settings.is_configured()
@@ -82,19 +87,28 @@ class InstagramChannel(BaseChannel):
                     time.sleep(30)
                     continue
 
+                newly_processed = False
                 threads = self._client.direct_threads(amount=20)
                 for thread in threads:
                     thread_id = str(thread.pk)
                     messages = self._client.direct_messages(thread_id, amount=5)
                     for msg in messages:
+                        msg_id = str(getattr(msg, "id", "") or getattr(msg, "item_id", ""))
+                        if not msg_id or msg_id in self._last_seen_message_ids:
+                            continue
+
                         sender_id = str(msg.user_id)
                         if sender_id == self._own_user_id:
+                            self._last_seen_message_ids.add(msg_id)
                             continue
 
                         text = getattr(msg, "text", "")
                         if not text:
+                            self._last_seen_message_ids.add(msg_id)
                             continue
 
+                        self._last_seen_message_ids.add(msg_id)
+                        newly_processed = True
                         logger.info(f"Instagram DM from {sender_id}: '{text[:40]}...'")
                         payload = {
                             "customer_id": f"IG_{sender_id}",
@@ -110,10 +124,30 @@ class InstagramChannel(BaseChannel):
                         except Exception as api_err:
                             logger.warning(f"Failed to create Instagram complaint: {api_err}")
 
+                if newly_processed:
+                    self._save_last_seen()
+
             except Exception as e:
                 logger.error(f"Error in Instagram DM polling: {e}")
             finally:
                 time.sleep(60)
+
+    def _load_last_seen(self) -> None:
+        try:
+            if os.path.exists(self._last_seen_file):
+                with open(self._last_seen_file) as f:
+                    data = json.load(f)
+                    self._last_seen_message_ids = set(data.get("message_ids", []))
+        except Exception:
+            self._last_seen_message_ids = set()
+
+    def _save_last_seen(self) -> None:
+        try:
+            ids_list = list(self._last_seen_message_ids)[-2000:]
+            with open(self._last_seen_file, "w") as f:
+                json.dump({"message_ids": ids_list}, f)
+        except Exception:
+            pass
 
     async def send_message(self, source_ref: str, text: str, **kwargs) -> bool:
         if self._client is None:
