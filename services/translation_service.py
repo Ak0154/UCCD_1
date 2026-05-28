@@ -8,23 +8,13 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_global_client: Optional[httpx.AsyncClient] = None
+_api_key_cache: Optional[str] = None
 
-
-def _get_global_client() -> httpx.AsyncClient:
-    global _global_client
-    if _global_client is None:
-        api_key = os.getenv("SARVAM_ACCESS_TOKEN")
-        _global_client = httpx.AsyncClient(
-            base_url="https://api.sarvam.ai",
-            headers={
-                "api-subscription-key": api_key,
-                "Content-Type": "application/json",
-            },
-            timeout=30.0,
-        )
-    return _global_client
-
+def _get_api_key() -> str:
+    global _api_key_cache
+    if _api_key_cache is None:
+        _api_key_cache = os.getenv("SARVAM_ACCESS_TOKEN", "")
+    return _api_key_cache
 
 class TranslationStage(Enum):
     INBOUND = "inbound"
@@ -32,18 +22,14 @@ class TranslationStage(Enum):
     DRAFT = "draft"
     REPORT = "report"
 
-
 class SarvamTranslationService:
 
     def __init__(self):
-        self.api_key = os.getenv("SARVAM_ACCESS_TOKEN")
+        self.api_key = _get_api_key()
         if not self.api_key:
             logger.warning("[WARN] SARVAM_ACCESS_TOKEN not set. Translation will be skipped.")
         elif len(self.api_key.strip()) < 10:
             logger.warning("[WARN] SARVAM_ACCESS_TOKEN appears too short")
-
-    def _get_client(self) -> httpx.AsyncClient:
-        return _get_global_client()
 
     @staticmethod
     def _route(stage: TranslationStage, target_lang: Optional[str] = None) -> dict:
@@ -51,19 +37,23 @@ class SarvamTranslationService:
             return {
                 "model": "mayura:v1",
                 "mode": "modern-colloquial",
-                "source_lang": "auto",
-                "target_lang": target_lang or "en-IN",
+                "source_language_code": "auto",
+                "target_language_code": target_lang or "en-IN",
             }
         return {
             "model": "sarvam-translate:v1",
             "mode": "formal",
-            "source_lang": "en-IN",
-            "target_lang": target_lang or "en-IN",
+            "source_language_code": "en-IN",
+            "target_language_code": target_lang or "en-IN",
         }
 
     async def _call_sarvam(self, payload: dict, endpoint: str = "/translate") -> dict:
-        client = self._get_client()
-        response = await client.post(endpoint, json=payload)
+        async with httpx.AsyncClient(
+            base_url="https://api.sarvam.ai",
+            headers={"api-subscription-key": self.api_key, "Content-Type": "application/json"},
+            timeout=30.0,
+        ) as client:
+            response = await client.post(endpoint, json=payload)
         if response.status_code >= 500:
             response.raise_for_status()
         if response.status_code >= 400:
@@ -116,9 +106,9 @@ class SarvamTranslationService:
 
         route = self._route(stage, target_lang)
         if source_lang:
-            route["source_lang"] = source_lang
+            route["source_language_code"] = source_lang
         if target_lang:
-            route["target_lang"] = target_lang
+            route["target_language_code"] = target_lang
 
         payload = {
             "input": text,
@@ -127,9 +117,36 @@ class SarvamTranslationService:
 
         try:
             result = await self._call_sarvam(payload)
+            translated = result.get("translated_text", text)
+            detected_lang = result.get("source_language_code")
+            target = route.get("target_language_code", "en-IN")
+
+            # Fallback: mayura:v1 auto-detect may fail for longer texts,
+            # returning same text + detecting as target language
+            if (stage in (TranslationStage.INBOUND, TranslationStage.PREVIEW)
+                    and translated == text
+                    and detected_lang == target
+                    and route.get("source_language_code") == "auto"):
+                for src in ("hi-IN", "ta-IN", "te-IN", "bn-IN", "mr-IN", "gu-IN"):
+                    fallback_route = {**route, "source_language_code": src, "model": "sarvam-translate:v1", "mode": "formal"}
+                    try:
+                        fb = await self._call_sarvam({"input": text, **fallback_route})
+                        fb_text = fb.get("translated_text", text)
+                        if fb_text != text:
+                            logger.info(f"[Sarvam] INBOUND fallback succeeded with lang={src}")
+                            return {
+                                "translated_text": fb_text,
+                                "detected_language": fb.get("source_language_code", src),
+                                "model_used": "sarvam-translate:v1",
+                                "mode_used": "formal",
+                                "translation_status": "success",
+                            }
+                    except Exception:
+                        continue
+
             return {
-                "translated_text": result.get("translated_text", text),
-                "detected_language": result.get("detected_language"),
+                "translated_text": translated,
+                "detected_language": detected_lang,
                 "model_used": route["model"],
                 "mode_used": route["mode"],
                 "translation_status": "success",
@@ -148,7 +165,7 @@ class SarvamTranslationService:
                     result = await self._call_sarvam(payload)
                     return {
                         "translated_text": result.get("translated_text", text),
-                        "detected_language": result.get("detected_language"),
+                        "detected_language": result.get("source_language_code"),
                         "model_used": route["model"],
                         "mode_used": route["mode"],
                         "translation_status": "success",
@@ -160,8 +177,8 @@ class SarvamTranslationService:
                 fallback_route = {
                     "model": "mayura:v1",
                     "mode": "formal",
-                    "source_lang": "en-IN",
-                    "target_lang": target_lang or "en-IN",
+                    "source_language_code": "en-IN",
+                    "target_language_code": target_lang or "en-IN",
                 }
                 fallback_payload = {"input": text, **fallback_route}
                 return await self._call_with_fallback(payload, fallback_payload, text)

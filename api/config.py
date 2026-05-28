@@ -19,6 +19,10 @@ class EmailSettings(BaseModel):
         return bool(self.mailgun_api_key and self.mailgun_domain)
 
 
+class EmailConversationSettings(BaseModel):
+    enabled: bool = False
+
+
 class TwitterSettings(BaseModel):
     username: str = ""
     password: str = ""
@@ -62,6 +66,7 @@ class Settings(BaseModel):
     telegram_bot_token: Optional[str] = None
     api_host: str = "http://localhost:8000"
     email: EmailSettings = EmailSettings()
+    email_conversation: EmailConversationSettings = EmailConversationSettings()
     twitter: TwitterSettings = TwitterSettings()
     instagram: InstagramSettings = InstagramSettings()
     whatsapp: WhatsAppSettings = WhatsAppSettings()
@@ -94,6 +99,9 @@ class Settings(BaseModel):
                 from_address=os.getenv("EMAIL_FROM_ADDRESS", "support@unionbankofindia.com"),
                 inbound_webhook_key=os.getenv("MAILGUN_INBOUND_WEBHOOK_KEY", ""),
                 enabled=bool(os.getenv("MAILGUN_API_KEY") and os.getenv("MAILGUN_DOMAIN")),
+            ),
+            email_conversation=EmailConversationSettings(
+                enabled=os.getenv("EMAIL_COMPLAINTS_CONVERSATION_MODE", "false").lower() == "true",
             ),
             twitter=TwitterSettings(
                 username=os.getenv("TWITTER_USERNAME", ""),
