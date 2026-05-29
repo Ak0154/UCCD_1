@@ -66,17 +66,24 @@ async def send_triage_update(complaint, ai_draft: str) -> bool:
     sla_hours = tier_hours.get(complaint.sla_tier, 72)
     sev_str = _severity_str(complaint)
 
-    if channel_name in ("instagram", "telegram", "twitter"):
+    if channel_name in ("instagram", "telegram"):
         return True
 
-    msg = (
-        f"Ticket Triage Assessment\n"
-        f"Ticket ID: {complaint.id}\n"
-        f"Category: {complaint.complaint_type or 'General'}\n"
-        f"SLA Deadline: {sla_hours} hours\n"
-        f"Severity Level: {sev_str}\n\n"
-        f"AI Draft:\n{ai_draft}"
-    )
+    if channel_name == "twitter":
+        msg = (
+            f"Ticket ID: {complaint.id}\n"
+            f"Category: {complaint.complaint_type or 'General'}\n"
+            f"SLA: {sla_hours}h | Severity: {sev_str}"
+        )
+    else:
+        msg = (
+            f"Ticket Triage Assessment\n"
+            f"Ticket ID: {complaint.id}\n"
+            f"Category: {complaint.complaint_type or 'General'}\n"
+            f"SLA Deadline: {sla_hours} hours\n"
+            f"Severity Level: {sev_str}\n\n"
+            f"AI Draft:\n{ai_draft}"
+        )
     return await channel.send_message(complaint.source_ref, msg)
 
 
