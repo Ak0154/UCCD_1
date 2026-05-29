@@ -72,36 +72,92 @@ class InstagramChannel(BaseChannel):
     def is_configured(self) -> bool:
         return self._settings.is_configured()
 
+    def _console_challenge_handler(self, username: str, choice: str | None = None) -> str | bool:
+        import sys
+
+        if choice is None:
+            logger.warning(
+                "Instagram challenge required for @%s. Check email/phone for verification code.", username
+            )
+            sys.stderr.write(
+                "\n=============================\n"
+                f"SECURITY CHALLENGE for @{username}\n"
+                "Instagram requires verification. Check your email or phone.\n"
+                "=============================\n"
+            )
+            try:
+                code = input("Enter verification code: ").strip()
+                return code if code else False
+            except (EOFError, OSError):
+                logger.error("No TTY available for Instagram challenge input.")
+                return False
+        else:
+            sys.stderr.write(f"\nChallenge: {choice}\n")
+            try:
+                answer = input("Enter response: ").strip()
+                return answer if answer else False
+            except (EOFError, OSError):
+                return False
+
     async def start(self) -> None:
         if not self.is_configured():
             logger.info("Instagram userbot not configured. Skipping.")
             return
         try:
             from instagrapi import Client
+            from instagrapi.exceptions import (
+                ChallengeRequired,
+                LoginRequired,
+                PleaseWaitFewMinutes,
+            )
+
             self._client = Client()
             session_file = self._settings.session_file
 
-            try:
-                self._client.load_settings(session_file)
-                self._client.login(self._settings.username, self._settings.password)
+            handler = self._settings.verification_code_handler
+            if handler == "console":
+                self._client.challenge_code_handler = self._console_challenge_handler
+            else:
+                logger.info("Instagram verification handler: %s (challenges will not auto-resolve)", handler)
+
+            logged_in = False
+
+            if os.path.exists(session_file):
                 try:
+                    self._client.load_settings(session_file)
                     self._client.get_timeline_feed()
-                except Exception:
-                    logger.info("Instagram session expired, re-logging in...")
+                    logged_in = True
+                    logger.info("Instagram session restored from file.")
+                except (LoginRequired, Exception):
+                    logger.info("Instagram session expired or invalid, performing fresh login.")
+                    try:
+                        os.remove(session_file)
+                    except OSError:
+                        pass
+
+            if not logged_in:
+                try:
                     self._client.login(self._settings.username, self._settings.password)
                     self._client.dump_settings(session_file)
-            except Exception:
-                self._client.login(self._settings.username, self._settings.password)
-                self._client.dump_settings(session_file)
+                    logger.info("Instagram session saved to %s", session_file)
+                except ChallengeRequired:
+                    logger.error(
+                        "Instagram requires a security challenge. "
+                        "Run: python scripts/setup_instagram_session.py"
+                    )
+                    return
+                except PleaseWaitFewMinutes:
+                    logger.error("Instagram is rate-limiting. Wait a few minutes and restart.")
+                    return
 
             self._own_user_id = str(self._client.user_id)
-            logger.info(f"Instagram logged in as {self._settings.username} (id={self._own_user_id})")
+            logger.info("Instagram logged in as %s (id=%s)", self._settings.username, self._own_user_id)
 
         except ImportError:
             logger.error("instagrapi package not installed. Install with: pip install instagrapi")
             return
         except Exception as e:
-            logger.error(f"Instagram sign-in failed: {e}")
+            logger.error("Instagram sign-in failed: %s", e)
             return
 
         self._stop_flag.clear()
