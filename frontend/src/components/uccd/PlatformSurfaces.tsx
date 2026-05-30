@@ -42,7 +42,7 @@ export function PlatformSurfaces() {
   const [live, setLive] = useState(true)
 
   return (
-    <section id="platform" className="border-t border-border py-20">
+    <section id="platform" className="border-t border-border py-20 scroll-mt-24">
       <Container>
         <div className="grid gap-8 lg:grid-cols-2 lg:items-end">
           <h2 className="font-display text-[2.35rem] leading-tight tracking-[-0.02em] text-text">

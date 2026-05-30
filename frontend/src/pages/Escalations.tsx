@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AppSidebar } from '../layout/AppSidebar'
 import { api } from '../api/client'
 import type { Complaint } from '../types/complaint'
@@ -62,6 +63,7 @@ function TimeBar({ hours }: { hours: number }) {
 }
 
 export function Escalations() {
+  const navigate = useNavigate()
   const [escalations, setEscalations] = useState<Esc[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -296,7 +298,7 @@ export function Escalations() {
                       <TimeBar hours={e.timeHours} />
                       <div style={{ display: 'flex', gap: 4 }}>
                         {[
-                          { label: 'View', color: '#3B82F6', bg: '#EFF6FF' },
+                          { label: 'View', color: '#3B82F6', bg: '#EFF6FF', onClick: () => navigate(`/app/complaints/${e.complaintId}`) },
                           { label: 'Escalate', color: '#DC2626', bg: '#FEE2E2', onClick: () => handleEscalate(e.complaintId) },
                         ].map((btn) => (
                           <button key={btn.label} type="button" onClick={(ev) => { ev.stopPropagation(); btn.onClick?.() }}

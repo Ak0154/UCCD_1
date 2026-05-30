@@ -38,7 +38,7 @@ export function Questions() {
   const cols = [faqs.slice(0, half), faqs.slice(half)]
 
   return (
-    <section id="faq" className="relative overflow-hidden border-t border-border py-20">
+    <section id="faq" className="relative overflow-hidden border-t border-border py-20 scroll-mt-24">
       <div className="pointer-events-none absolute left-1/2 top-10 h-48 w-[70%] -translate-x-1/2 rounded-full bg-accent/5 blur-3xl" />
       <Container>
         <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">

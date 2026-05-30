@@ -2,10 +2,10 @@ from fastapi import APIRouter,Query,HTTPException,Depends,BackgroundTasks
 from uuid import uuid4
 from datetime import datetime, timezone
 from typing import Optional
-from api.schemas.complaint import ComplaintCreate, ComplaintResponse, ComplaintListResponse, StatusUpdate
+from api.schemas.complaint import ComplaintCreate, ComplaintResponse, ComplaintListResponse, StatusUpdate, CustomerProfileResponse, ComplaintSummary, BulkAutoAssignRequest, BulkAutoAssignResponse
 from api.db.session import get_db
 from sqlalchemy.orm import Session 
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from api.models.complaint import Complaint
 from agents.orchestrator import run_pipeline
 from services.sla_service import get_sla_status, clear_sla
@@ -15,6 +15,7 @@ from services.draft_service import generate_draft
 from api.auth import require_role
 from api.models.user import User
 from kafka.producer import publish_complaint
+from services.agent_service import auto_assign_complaint, get_best_agent, AGENT_DEPARTMENT_MAP
 
 class RespondResolveRequest(BaseModel):
     response_text: str
@@ -170,6 +171,74 @@ def list_escalated_complaints(
         "complaints": filtered_complaints.offset(start).limit(limit).all(),
     }
 
+@router.get("/customer/{customer_id}", response_model=CustomerProfileResponse)
+def get_customer_profile(customer_id: str, db: Session = Depends(get_db)):
+    complaints = db.query(Complaint).filter(Complaint.customer_id == customer_id).order_by(Complaint.created_at.asc()).all()
+
+    if not complaints:
+        raise HTTPException(status_code=404, detail=f"No complaints found for customer {customer_id}")
+
+    latest = complaints[-1]
+    open_complaints = [c for c in complaints if c.status != "resolved"]
+    resolved_complaints = [c for c in complaints if c.status == "resolved"]
+
+    issue_counts: dict[str, int] = {}
+    channel_counts: dict[str, int] = {}
+    for c in complaints:
+        issue = c.complaint_type or c.intent or c.product_code or "General"
+        issue_counts[issue] = issue_counts.get(issue, 0) + 1
+        ch = c.channel or "unknown"
+        channel_counts[ch] = channel_counts.get(ch, 0) + 1
+
+    resolutions = [
+        (c.resolved_at - c.created_at).total_seconds()
+        for c in resolved_complaints
+        if c.resolved_at and c.created_at
+    ]
+    avg_hours = round(sum(resolutions) / len(resolutions) / 3600, 1) if resolutions else None
+    sla_breaches = sum(1 for c in complaints if c.sla_breached)
+    viral_score = max((c.viral_risk_score for c in complaints if c.viral_risk_score is not None), default=None)
+
+    def _to_summary(c: Complaint) -> dict:
+        return {
+            "complaint_id": str(c.id),
+            "status": c.status,
+            "complaint_type": c.complaint_type,
+            "intent": c.intent,
+            "product_code": c.product_code,
+            "channel": c.channel,
+            "raw_text": c.raw_text[:300] if c.raw_text else "",
+            "created_at": c.created_at,
+            "resolved_at": c.resolved_at,
+            "sla_breached": c.sla_breached,
+            "sla_deadline": c.sla_deadline,
+            "regulatory_flag": c.regulatory_flag,
+            "assigned_to": c.assigned_to,
+            "ai_draft": c.ai_draft,
+            "root_cause": c.root_cause,
+        }
+
+    return {
+        "customer_id": customer_id,
+        "customer_name": latest.customer_name,
+        "customer_email": latest.customer_email,
+        "customer_phone": latest.customer_phone,
+        "account_number": latest.account_number,
+        "vip_customer": latest.vip_customer or False,
+        "total_complaints": len(complaints),
+        "open_complaints": len(open_complaints),
+        "resolved_complaints": len(resolved_complaints),
+        "avg_resolution_hours": avg_hours,
+        "sla_breach_count": sla_breaches,
+        "most_common_issue": max(issue_counts, key=issue_counts.get) if issue_counts else None,
+        "preferred_channel": max(channel_counts, key=channel_counts.get) if channel_counts else None,
+        "viral_risk_score": viral_score,
+        "regulatory_flagged": any(c.regulatory_flag for c in complaints),
+        "repeat_complaint": len(issue_counts) > 0 and max(issue_counts.values()) >= 2,
+        "active_complaints": [_to_summary(c) for c in open_complaints],
+        "complaint_history": [_to_summary(c) for c in reversed(complaints)],
+    }
+
 @router.get("/{complaint_id}",response_model=ComplaintResponse)
 def get_complaint(complaint_id: str, db: Session = Depends(get_db)):
     complaint = find_complaint(complaint_id, db)
@@ -254,6 +323,62 @@ def assign_complaint(
         }
     )
     return complaint
+
+@router.post("/auto-assign", response_model=BulkAutoAssignResponse)
+def bulk_auto_assign_complaints(
+    body: BulkAutoAssignRequest,
+    db: Session = Depends(get_db),
+):
+    assignments: dict[str, Optional[str]] = {}
+    assigned = 0
+    failed = 0
+
+    target_department = body.department
+    for cid in body.complaint_ids:
+        complaint = find_complaint(cid, db)
+        if not complaint:
+            assignments[cid] = None
+            failed += 1
+            continue
+        if complaint.assigned_to:
+            assignments[cid] = complaint.assigned_to
+            assigned += 1
+            continue
+
+        complaint_type = complaint.complaint_type
+        dept = target_department or None
+        agent = None
+        if dept:
+            dept_agents = [email for email, d in AGENT_DEPARTMENT_MAP.items() if d == dept.lower()]
+            if dept_agents:
+                from services.agent_service import compute_agent_load
+                loads = compute_agent_load(db)
+                eligible = [(a, loads.get(a, 0)) for a in dept_agents if loads.get(a, 0) < 15]
+                if eligible:
+                    eligible.sort(key=lambda x: x[1])
+                    agent = eligible[0][0]
+
+        if not agent:
+            agent = auto_assign_complaint(db, cid, complaint_type=complaint_type)
+
+        if agent:
+            complaint.assigned_to = agent
+            if complaint.status in ("queued", "new"):
+                complaint.status = "new"
+            db.commit()
+            db.refresh(complaint)
+            assignments[cid] = agent
+            assigned += 1
+        else:
+            assignments[cid] = None
+            failed += 1
+
+    return {"assigned": assigned, "failed": failed, "assignments": assignments}
+
+@router.get("/departments")
+def list_departments():
+    depts = sorted(set(AGENT_DEPARTMENT_MAP.values()))
+    return {"departments": depts}
 
 @router.get("/{complaint_id}/draft")
 async def generate_response_draft(complaint_id: str, tone: str = Query("apologetic"), db: Session = Depends(get_db)):

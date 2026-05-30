@@ -40,7 +40,7 @@ export function Channels() {
   const movingChannels = [...channels, ...channels]
 
   return (
-    <section id="channels" className="overflow-hidden py-20">
+    <section id="channels" className="overflow-hidden py-20 scroll-mt-24">
       <Container className="grid gap-12 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
         <div>
           <h2 className="font-display text-[2.35rem] leading-tight tracking-[-0.02em] text-text">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AppSidebar } from '../layout/AppSidebar'
 import { api } from '../api/client'
 import type { Complaint, DashboardKpis, TrendPoint } from '../types/complaint'
@@ -210,6 +211,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 
 export function SlaBreaches() {
   useAuth()
+  const navigate = useNavigate()
 
   const [breaches, setBreaches] = useState<BreachRow[]>([])
   const [kpis, setKpis] = useState<DashboardKpis | null>(null)
@@ -477,7 +479,7 @@ export function SlaBreaches() {
                           padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600,
                           background: '#FEE2E2', color: '#DC2626', border: 'none', cursor: 'pointer',
                         }}>Escalate</button>
-                        <button type="button" style={{
+                        <button type="button" onClick={(e) => { e.stopPropagation(); navigate(`/app/complaints/${b.complaint.id}`) }} style={{
                           padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600,
                           background: '#EFF6FF', color: '#3B82F6', border: 'none', cursor: 'pointer',
                         }}>View</button>
