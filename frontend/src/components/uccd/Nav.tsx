@@ -1,5 +1,14 @@
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Container, PrimaryButton } from './ui'
+import { Switch } from '@/components/ui/switch'
+import {
+  applyAppearancePreferences,
+  readAppearancePreferences,
+  storeAppearancePreferences,
+  type AppearanceTheme,
+} from '@/lib/appearance'
+import { useRouter } from '@/hooks/use-router'
 
 const links = [
   { href: '#features', label: 'Agents' },
@@ -11,6 +20,32 @@ const links = [
 ]
 
 export function Nav() {
+  const { navigate } = useRouter()
+  const [theme, setTheme] = useState<AppearanceTheme>('light')
+
+  useEffect(() => {
+    const preferences = readAppearancePreferences()
+    setTheme(preferences.theme)
+    applyAppearancePreferences(preferences.theme, preferences.font)
+  }, [])
+
+  const setThemePreference = (nextTheme: AppearanceTheme) => {
+    const preferences = readAppearancePreferences()
+    setTheme(nextTheme)
+    storeAppearancePreferences(nextTheme, preferences.font)
+  }
+
+  const handleNavClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.startsWith('#')) {
+      e.preventDefault()
+      window.history.pushState(null, '', href)
+      const target = document.querySelector(href)
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
+  }, [])
+
   return (
     <header className="fixed top-0 z-50 w-full border-b border-border/80 bg-bg/80 backdrop-blur-md">
       <Container className="flex h-16 items-center justify-between">
@@ -27,16 +62,27 @@ export function Nav() {
             <a
               key={l.href}
               href={l.href}
-              className="text-sm text-muted transition-colors hover:text-text"
+              onClick={(e) => handleNavClick(e, l.href)}
+              className="text-sm text-muted transition-colors hover:text-text cursor-pointer"
             >
               {l.label}
             </a>
           ))}
         </nav>
-        <PrimaryButton className="hidden sm:inline-flex">Request demo</PrimaryButton>
-        <Link to="/login" className="hidden sm:inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-text transition hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
-          Login
-        </Link>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 text-xs text-muted">
+            <span className={theme === 'light' ? 'text-text' : undefined}>Day</span>
+            <Switch
+              checked={theme === 'dark'}
+              onCheckedChange={(checked) => setThemePreference(checked ? 'dark' : 'light')}
+            />
+            <span className={theme === 'dark' ? 'text-text' : undefined}>Dark</span>
+          </div>
+          <PrimaryButton className="hidden sm:inline-flex" onClick={() => navigate('login')}>Request demo</PrimaryButton>
+          <Link href="/login" className="hidden sm:inline-flex h-10 cursor-pointer items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-text transition hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+            Login
+          </Link>
+        </div>
       </Container>
     </header>
   )

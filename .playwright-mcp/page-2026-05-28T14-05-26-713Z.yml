@@ -1,0 +1,102 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e84]:
+    - generic [ref=e87]:
+      - list [ref=e89]:
+        - listitem [ref=e90]:
+          - generic [ref=e91]:
+            - img [ref=e93]
+            - generic [ref=e97]:
+              - generic [ref=e98]: ComplaintIQ
+              - generic [ref=e99]: HDFC Bank · Gen-AI
+      - generic [ref=e100]:
+        - generic [ref=e101]:
+          - generic [ref=e102]: Navigation
+          - list [ref=e104]:
+            - listitem [ref=e105]:
+              - button "Dashboard" [ref=e106]:
+                - img [ref=e107]
+                - generic [ref=e112]: Dashboard
+            - listitem [ref=e113]:
+              - button "My Queue" [ref=e114]:
+                - img [ref=e115]
+                - generic [ref=e118]: My Queue
+            - listitem [ref=e119]:
+              - button "AI Drafts" [ref=e120]:
+                - img [ref=e121]
+                - generic [ref=e124]: AI Drafts
+            - listitem [ref=e125]:
+              - button "360° View" [ref=e126]:
+                - img [ref=e127]
+                - generic [ref=e130]: 360° View
+            - listitem [ref=e131]:
+              - button "Search" [ref=e132]:
+                - img [ref=e133]
+                - generic [ref=e136]: Search
+        - generic [ref=e137]:
+          - generic [ref=e138]: System
+          - list [ref=e140]:
+            - listitem [ref=e141]:
+              - button "Settings" [ref=e142]:
+                - img [ref=e143]
+                - generic [ref=e146]: Settings
+            - listitem [ref=e147]:
+              - button "Help & Support" [ref=e148]:
+                - img [ref=e149]
+                - generic [ref=e152]: Help & Support
+      - list [ref=e154]:
+        - listitem [ref=e155]:
+          - button "AD Agent Demo AGENT" [ref=e156] [cursor=pointer]:
+            - generic [ref=e158]: AD
+            - generic [ref=e159]:
+              - generic [ref=e160]: Agent Demo
+              - generic [ref=e161]: AGENT
+            - img [ref=e162]
+      - button "Toggle Sidebar" [ref=e164]
+    - main [ref=e165]:
+      - generic [ref=e166]:
+        - button "Toggle Sidebar" [ref=e167]:
+          - img
+          - generic [ref=e168]: Toggle Sidebar
+        - generic [ref=e170]:
+          - button "Home" [ref=e171]
+          - img [ref=e172]
+          - generic [ref=e174]: 360° View
+        - generic [ref=e175]:
+          - generic [ref=e176]:
+            - generic [ref=e177]: Day
+            - switch "Toggle day or dark mode" [ref=e178]
+            - generic [ref=e179]: Dark
+          - button "Search anything... Ctrl K" [ref=e180]:
+            - generic [ref=e181]:
+              - img [ref=e182]
+              - generic [ref=e185]: Search anything...
+            - generic [ref=e186]: Ctrl K
+          - generic [ref=e187]:
+            - heading "Search" [level=2] [ref=e188]
+            - paragraph [ref=e189]: Search pages, complaints, drafts, and table entries.
+      - main [ref=e190]:
+        - generic [ref=e191]:
+          - generic [ref=e193]:
+            - generic [ref=e194]:
+              - generic [ref=e195]:
+                - generic [ref=e196]: Customer lookup
+                - generic [ref=e197]:
+                  - img
+                  - textbox "Customer lookup" [ref=e198]:
+                    - /placeholder: Customer ID, name, email, phone, or account
+              - button "Search" [disabled]
+            - generic [ref=e199]:
+              - button "Rajesh Sharmarajesh@example.com" [ref=e200]
+              - button "CUST_1020CUST_1020" [ref=e201]
+              - button "CUST_1019CUST_1019" [ref=e202]
+              - button "CUST_1018CUST_1018" [ref=e203]
+              - button "CUST_1017CUST_1017" [ref=e204]
+          - generic [ref=e206]:
+            - img [ref=e207]
+            - generic [ref=e210]: Search a customer to open their 360° view
+            - generic [ref=e211]: Pick a recent customer chip or search by ID, contact, or account details.
+  - region "Notifications (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=e80] [cursor=pointer]:
+    - img [ref=e81]
+  - alert [ref=e212]

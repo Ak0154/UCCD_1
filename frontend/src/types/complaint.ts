@@ -82,6 +82,45 @@ export interface ComplaintFilters {
   customer_id?: string
 }
 
+export interface ComplaintSummary {
+  complaint_id: string
+  status: string
+  complaint_type: string | null
+  intent: string | null
+  product_code: string | null
+  channel: string
+  raw_text: string
+  created_at: string
+  resolved_at: string | null
+  sla_breached: boolean
+  sla_deadline: string | null
+  regulatory_flag: boolean
+  assigned_to: string | null
+  ai_draft: string | null
+  root_cause: string | null
+}
+
+export interface CustomerProfile {
+  customer_id: string
+  customer_name: string | null
+  customer_email: string | null
+  customer_phone: string | null
+  account_number: string | null
+  vip_customer: boolean
+  total_complaints: number
+  open_complaints: number
+  resolved_complaints: number
+  avg_resolution_hours: number | null
+  sla_breach_count: number
+  most_common_issue: string | null
+  preferred_channel: string | null
+  viral_risk_score: number | null
+  regulatory_flagged: boolean
+  repeat_complaint: boolean
+  active_complaints: ComplaintSummary[]
+  complaint_history: ComplaintSummary[]
+}
+
 export interface DashboardKpis {
   total: number
   open: number

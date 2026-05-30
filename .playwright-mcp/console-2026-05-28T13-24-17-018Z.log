@@ -1,0 +1,587 @@
+[     178ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    1060ms] [LOG] [Fast Refresh] done in 985ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    1098ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/test123:0
+[    1189ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    1231ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[    1583ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) @ http://localhost:3000/test123:0
+[   44865ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   45611ms] [LOG] [Fast Refresh] done in 806ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   45717ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) @ http://localhost:3000/test123:0
+[   45735ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   46355ms] [LOG] [Fast Refresh] done in 726ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   46480ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[   47096ms] [LOG] [Fast Refresh] done in 722ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  137541ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  138607ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  138799ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  139011ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  139114ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  141206ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  141322ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  141634ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  141740ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  145839ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  146625ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/test123?_rsc=08iK_Ux6Aubuvyw8:0
+[  146758ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  146788ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  146834ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  146837ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  146944ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  146958ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  146981ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/test123?_rsc=08iK_Ux6Aubuvyw8:0
+[  146986ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  147102ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  147106ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  147109ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:3318
+[  147118ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/test123:0
+[  147767ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_react-dom_0bruynb._.js:15305
+[  147986ms] Error: ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/hooks/use-router.tsx:127:3)
+    at Object.getCompilationErrors (file://D:\UCCD\frontend\node_modules\next\dist\server\dev\hot-reloader-turbopack.js:1186:59)
+    at DevBundlerService.getCompilationError (file://D:\UCCD\frontend\node_modules\next\dist\server\lib\dev-bundler-service.js:44:55)
+    at DevServer.getCompilationError (file://D:\UCCD\frontend\node_modules\next\dist\server\dev\next-dev-server.js:720:42)
+    at DevServer.findPageComponents (file://D:\UCCD\frontend\node_modules\next\dist\server\dev\next-dev-server.js:690:43)
+    at async DevServer.renderErrorToResponseImpl (file://D:\UCCD\frontend\node_modules\next\dist\server\base-server.js:1753:26)
+[  148040ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  148087ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  148088ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/[...slug]/page.tsx [Client Component Browser]
+    ./src/app/[...slug]/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/[...slug]/page.tsx [Client Component SSR]
+    ./src/app/[...slug]/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  148204ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:3000/favicon.ico:0
+[  148213ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  148216ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  148345ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  148365ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  148449ms] [ERROR] ./src/hooks/use-router.tsx:127:3
+Return statement is not allowed here
+  125 |   }, [])
+  126 |
+> 127 |   return (
+      |   ^^^^^^^
+> 128 |     <RouterContext.Provider value={{ router, navigate, goBack, history }}>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 129 |       {children}
+      | ^^^^^^^^^^^^^^^^
+> 130 |     </RouterContext.Provider>
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 131 |   )
+      | ^^^
+  132 | }
+  133 |
+  134 | export function useRouter() {
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/hooks/use-router.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/hooks/use-router.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1945
+[  148515ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  244468ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  245331ms] [LOG] [Fast Refresh] done in 965ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  245498ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  246942ms] [LOG] [Fast Refresh] done in 1551ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  247095ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  248656ms] [LOG] [Fast Refresh] done in 1662ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_0u_w_5s._.js:1226
+[  248979ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  249058ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_115brz8._.js:2477
+[  249512ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) @ http://localhost:3000/test123:0
