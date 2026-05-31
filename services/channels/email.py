@@ -50,7 +50,7 @@ class EmailChannel(BaseChannel):
                 f'<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;">'
                 f'<div style="background:#0033a0;padding:16px;text-align:center;">'
                 f'<h2 style="color:#fff;margin:0;">Union Bank of India</h2></div>'
-                f'<div style="padding:24px;border:1px solid #ddd;">{text}</div>'
+                f'<div style="padding:24px;border:1px solid #ddd;white-space:pre-wrap;">{text}</div>'
                 f'<div style="font-size:12px;color:#888;margin-top:16px;">'
                 f'This is an automated message from Union Bank of India Customer Support.</div></div>'
             ),

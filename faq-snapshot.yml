@@ -1,0 +1,701 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e792]:
+    - banner [ref=e793]:
+      - generic [ref=e794]:
+        - link "OmniResol" [ref=e795] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e797]
+          - text: OmniResol
+        - navigation "Main" [ref=e799]:
+          - link "Agents" [ref=e800] [cursor=pointer]:
+            - /url: "#features"
+          - link "Channels" [ref=e801] [cursor=pointer]:
+            - /url: "#channels"
+          - link "Workflow" [ref=e802] [cursor=pointer]:
+            - /url: "#workflow"
+          - link "Platform" [ref=e803] [cursor=pointer]:
+            - /url: "#platform"
+          - link "API Docs" [ref=e804] [cursor=pointer]:
+            - /url: "#api-docs"
+          - link "FAQ" [ref=e805] [cursor=pointer]:
+            - /url: "#faq"
+        - generic [ref=e806]:
+          - generic [ref=e807]:
+            - generic [ref=e808]: Day
+            - switch [ref=e809]
+            - generic [ref=e810]: Dark
+          - button "Request demo" [ref=e811] [cursor=pointer]
+          - link "Login" [ref=e812] [cursor=pointer]:
+            - /url: /login
+    - main [ref=e813]:
+      - generic [ref=e815]:
+        - generic [ref=e816]:
+          - heading "Unified Complaint Command Center" [level=1] [ref=e817]:
+            - text: Unified Complaint
+            - text: Command Center
+          - paragraph [ref=e818]: UCCD brings email, social, voice, chat, portal, and regulator complaints into one AI-assisted resolution workflow.
+          - button "See the workflow" [ref=e819] [cursor=pointer]
+          - generic [ref=e820]:
+            - paragraph [ref=e821]: Built for regulated service teams
+            - generic "UCCD product metrics" [ref=e822]:
+              - generic [ref=e823]: 6 channels
+              - generic [ref=e824]: 7 AI agents
+              - generic [ref=e825]: SLA ready
+        - generic [ref=e829]:
+          - generic [ref=e830]:
+            - paragraph [ref=e831]: Live intake
+            - generic [ref=e832]:
+              - generic [ref=e834]: Email
+              - generic [ref=e837]: WhatsApp
+              - generic [ref=e840]: Voice
+              - generic [ref=e843]: Regulator
+          - generic [ref=e845]:
+            - paragraph [ref=e847]: Agent workspace
+            - generic [ref=e848]:
+              - generic [ref=e849]:
+                - generic [ref=e850]: "Severity: High"
+                - generic [ref=e851]: "Emotion: Angry"
+                - generic [ref=e852]: "Cluster: UPI_FAIL"
+              - paragraph [ref=e853]: Customer reports failed UPI debit with no reversal.
+              - generic [ref=e854]:
+                - generic [ref=e855]:
+                  - paragraph [ref=e856]: UPI refund stuck
+                  - paragraph [ref=e857]: High · 42m left
+                - generic [ref=e858]:
+                  - paragraph [ref=e859]: Card fraud dispute
+                  - paragraph [ref=e860]: Critical · 12m left
+                - generic [ref=e861]:
+                  - paragraph [ref=e862]: Loan closure delay
+                  - paragraph [ref=e863]: Medium · 3h left
+          - generic [ref=e864]:
+            - paragraph [ref=e865]: AI output
+            - generic [ref=e866]:
+              - generic [ref=e867]: Draft response ready
+              - generic [ref=e868]: SLA breach risk 72%
+              - generic [ref=e869]: Route to Fraud Ops
+      - generic [ref=e871]:
+        - generic [ref=e872]:
+          - text: 360 case record
+          - paragraph [ref=e873]: Every complaint becomes a single 360 degree case record, enriched by AI agents, SLA intelligence, regulatory context, and next-best-action guidance.
+        - generic [ref=e874]:
+          - generic [ref=e875]:
+            - generic [ref=e876]:
+              - paragraph [ref=e877]: Case UCCD-4821
+              - heading "Refund failed after successful debit" [level=3] [ref=e878]
+            - generic [ref=e879]: SLA 42m left
+          - generic [ref=e880]:
+            - generic [ref=e881]:
+              - generic [ref=e882]:
+                - paragraph [ref=e883]: Customer
+                - paragraph [ref=e884]: Aarav S.
+              - generic [ref=e885]:
+                - paragraph [ref=e886]: Product
+                - paragraph [ref=e887]: UPI transfer
+              - generic [ref=e888]:
+                - paragraph [ref=e889]: Severity
+                - paragraph [ref=e890]: High
+              - generic [ref=e891]:
+                - paragraph [ref=e892]: Regulatory
+                - paragraph [ref=e893]: Watchlist
+            - generic [ref=e894]:
+              - paragraph [ref=e895]: Unified timeline
+              - generic [ref=e896]:
+                - generic [ref=e897]:
+                  - generic [ref=e898]: 10:04
+                  - paragraph [ref=e900]: WhatsApp complaint received
+                - generic [ref=e901]:
+                  - generic [ref=e902]: 10:05
+                  - paragraph [ref=e904]: NLP tagged refund dispute
+                - generic [ref=e905]:
+                  - generic [ref=e906]: 10:06
+                  - paragraph [ref=e908]: SLA risk calculated
+                - generic [ref=e909]:
+                  - generic [ref=e910]: 10:07
+                  - paragraph [ref=e912]: Draft response prepared
+      - generic [ref=e914]:
+        - generic [ref=e915]:
+          - heading "Multi-agent triage for real complaint work" [level=2] [ref=e916]
+          - paragraph [ref=e917]: Each case is analyzed in parallel so agents start with context, risk, and recommended action instead of a blank screen.
+        - generic [ref=e918]:
+          - generic [ref=e919]:
+            - article [ref=e920]:
+              - generic [ref=e922]: NLP
+              - generic [ref=e923]:
+                - heading "NLP Classifier" [level=3] [ref=e924]
+                - paragraph [ref=e925]: Detects product, issue type, intent, and complaint category as soon as a case enters.
+              - generic [ref=e926]:
+                - paragraph [ref=e927]: Output
+                - paragraph [ref=e928]: refund dispute
+            - article [ref=e929]:
+              - generic [ref=e931]: EMO
+              - generic [ref=e932]:
+                - heading "Emotion Agent" [level=3] [ref=e933]
+                - paragraph [ref=e934]: Detects customer tone and adjusts response temperament for de-escalation.
+              - generic [ref=e935]:
+                - paragraph [ref=e936]: Output
+                - paragraph [ref=e937]: angry → calm
+            - article [ref=e938]:
+              - generic [ref=e940]: SLA
+              - generic [ref=e941]:
+                - heading "Severity Scorer" [level=3] [ref=e942]
+                - paragraph [ref=e943]: Ranks urgency, regulatory exposure, and breach risk before the queue gets noisy.
+              - generic [ref=e944]:
+                - paragraph [ref=e945]: Output
+                - paragraph [ref=e946]: high risk
+            - article [ref=e947]:
+              - generic [ref=e949]: DNA
+              - generic [ref=e950]:
+                - heading "Complaint DNA" [level=3] [ref=e951]
+                - paragraph [ref=e952]: Links duplicates, semantic clusters, and recurring failures across channels.
+              - generic [ref=e953]:
+                - paragraph [ref=e954]: Output
+                - paragraph [ref=e955]: UPI_FAIL
+            - article [ref=e956]:
+              - generic [ref=e958]: ESC
+              - generic [ref=e959]:
+                - heading "Escalation Agent" [level=3] [ref=e960]
+                - paragraph [ref=e961]: Predicts breach probability and flags cases requiring immediate human attention.
+              - generic [ref=e962]:
+                - paragraph [ref=e963]: Output
+                - paragraph [ref=e964]: 72% breach risk
+            - article [ref=e965]:
+              - generic [ref=e967]: RCA
+              - generic [ref=e968]:
+                - heading "Root Cause Agent" [level=3] [ref=e969]
+                - paragraph [ref=e970]: Finds probable operational causes and turns repeat patterns into action signals.
+              - generic [ref=e971]:
+                - paragraph [ref=e972]: Output
+                - paragraph [ref=e973]: switch timeout
+          - complementary [ref=e974]:
+            - paragraph [ref=e975]: Parallel result bus
+            - generic [ref=e976]:
+              - generic [ref=e977]:
+                - generic [ref=e979]: Severity
+                - paragraph [ref=e981]: HIGH / watchlist
+              - generic [ref=e982]:
+                - generic [ref=e984]: Root Cause
+                - paragraph [ref=e986]: switch timeout
+              - generic [ref=e987]:
+                - generic [ref=e989]: Routing
+                - paragraph [ref=e991]: Fraud Ops
+              - generic [ref=e992]:
+                - generic [ref=e994]: Draft
+                - paragraph [ref=e996]: response ready
+      - generic [ref=e998]:
+        - generic [ref=e999]:
+          - heading "Complaints from every channel. One pipeline." [level=2] [ref=e1000]
+          - paragraph [ref=e1001]: Email, social, voice, chat, portal, app, and regulator cases are normalized into a single complaint envelope for consistent action.
+          - link "Follow a case" [ref=e1002] [cursor=pointer]:
+            - /url: "#workflow"
+            - text: Follow a case
+            - img [ref=e1003]
+        - generic [ref=e1005]:
+          - generic [ref=e1006]:
+            - generic [ref=e1007]:
+              - generic [ref=e1008]: EML
+              - generic [ref=e1009]:
+                - paragraph [ref=e1010]: Email
+                - generic [ref=e1011]:
+                  - generic [ref=e1012]: Thread-aware
+                  - generic [ref=e1013]: +IMAP
+            - generic [ref=e1014]:
+              - generic [ref=e1015]: SOC
+              - generic [ref=e1016]:
+                - paragraph [ref=e1017]: Social
+                - generic [ref=e1018]:
+                  - generic [ref=e1019]: Public risk
+                  - generic [ref=e1020]: +Meta/X
+            - generic [ref=e1021]:
+              - generic [ref=e1022]: VOC
+              - generic [ref=e1023]:
+                - paragraph [ref=e1024]: Voice
+                - generic [ref=e1025]:
+                  - generic [ref=e1026]: Transcript
+                  - generic [ref=e1027]: +STT
+            - generic [ref=e1028]:
+              - generic [ref=e1029]: BOT
+              - generic [ref=e1030]:
+                - paragraph [ref=e1031]: Chat/Bot
+                - generic [ref=e1032]:
+                  - generic [ref=e1033]: Handoff
+                  - generic [ref=e1034]: +Webhook
+            - generic [ref=e1035]:
+              - generic [ref=e1036]: APP
+              - generic [ref=e1037]:
+                - paragraph [ref=e1038]: Portal/App
+                - generic [ref=e1039]:
+                  - generic [ref=e1040]: Structured
+                  - generic [ref=e1041]: +REST
+            - generic [ref=e1042]:
+              - generic [ref=e1043]: REG
+              - generic [ref=e1044]:
+                - paragraph [ref=e1045]: Regulator
+                - generic [ref=e1046]:
+                  - generic [ref=e1047]: Formal case
+                  - generic [ref=e1048]: +Priority
+            - generic [ref=e1049]:
+              - generic [ref=e1050]: EML
+              - generic [ref=e1051]:
+                - paragraph [ref=e1052]: Email
+                - generic [ref=e1053]:
+                  - generic [ref=e1054]: Thread-aware
+                  - generic [ref=e1055]: +IMAP
+            - generic [ref=e1056]:
+              - generic [ref=e1057]: SOC
+              - generic [ref=e1058]:
+                - paragraph [ref=e1059]: Social
+                - generic [ref=e1060]:
+                  - generic [ref=e1061]: Public risk
+                  - generic [ref=e1062]: +Meta/X
+            - generic [ref=e1063]:
+              - generic [ref=e1064]: VOC
+              - generic [ref=e1065]:
+                - paragraph [ref=e1066]: Voice
+                - generic [ref=e1067]:
+                  - generic [ref=e1068]: Transcript
+                  - generic [ref=e1069]: +STT
+            - generic [ref=e1070]:
+              - generic [ref=e1071]: BOT
+              - generic [ref=e1072]:
+                - paragraph [ref=e1073]: Chat/Bot
+                - generic [ref=e1074]:
+                  - generic [ref=e1075]: Handoff
+                  - generic [ref=e1076]: +Webhook
+            - generic [ref=e1077]:
+              - generic [ref=e1078]: APP
+              - generic [ref=e1079]:
+                - paragraph [ref=e1080]: Portal/App
+                - generic [ref=e1081]:
+                  - generic [ref=e1082]: Structured
+                  - generic [ref=e1083]: +REST
+            - generic [ref=e1084]:
+              - generic [ref=e1085]: REG
+              - generic [ref=e1086]:
+                - paragraph [ref=e1087]: Regulator
+                - generic [ref=e1088]:
+                  - generic [ref=e1089]: Formal case
+                  - generic [ref=e1090]: +Priority
+          - generic [ref=e1091]:
+            - generic [ref=e1092]:
+              - generic [ref=e1093]: REG
+              - generic [ref=e1094]:
+                - paragraph [ref=e1095]: Regulator
+                - generic [ref=e1096]:
+                  - generic [ref=e1097]: Formal case
+                  - generic [ref=e1098]: +Priority
+            - generic [ref=e1099]:
+              - generic [ref=e1100]: APP
+              - generic [ref=e1101]:
+                - paragraph [ref=e1102]: Portal/App
+                - generic [ref=e1103]:
+                  - generic [ref=e1104]: Structured
+                  - generic [ref=e1105]: +REST
+            - generic [ref=e1106]:
+              - generic [ref=e1107]: BOT
+              - generic [ref=e1108]:
+                - paragraph [ref=e1109]: Chat/Bot
+                - generic [ref=e1110]:
+                  - generic [ref=e1111]: Handoff
+                  - generic [ref=e1112]: +Webhook
+            - generic [ref=e1113]:
+              - generic [ref=e1114]: VOC
+              - generic [ref=e1115]:
+                - paragraph [ref=e1116]: Voice
+                - generic [ref=e1117]:
+                  - generic [ref=e1118]: Transcript
+                  - generic [ref=e1119]: +STT
+            - generic [ref=e1120]:
+              - generic [ref=e1121]: SOC
+              - generic [ref=e1122]:
+                - paragraph [ref=e1123]: Social
+                - generic [ref=e1124]:
+                  - generic [ref=e1125]: Public risk
+                  - generic [ref=e1126]: +Meta/X
+            - generic [ref=e1127]:
+              - generic [ref=e1128]: EML
+              - generic [ref=e1129]:
+                - paragraph [ref=e1130]: Email
+                - generic [ref=e1131]:
+                  - generic [ref=e1132]: Thread-aware
+                  - generic [ref=e1133]: +IMAP
+            - generic [ref=e1134]:
+              - generic [ref=e1135]: REG
+              - generic [ref=e1136]:
+                - paragraph [ref=e1137]: Regulator
+                - generic [ref=e1138]:
+                  - generic [ref=e1139]: Formal case
+                  - generic [ref=e1140]: +Priority
+            - generic [ref=e1141]:
+              - generic [ref=e1142]: APP
+              - generic [ref=e1143]:
+                - paragraph [ref=e1144]: Portal/App
+                - generic [ref=e1145]:
+                  - generic [ref=e1146]: Structured
+                  - generic [ref=e1147]: +REST
+            - generic [ref=e1148]:
+              - generic [ref=e1149]: BOT
+              - generic [ref=e1150]:
+                - paragraph [ref=e1151]: Chat/Bot
+                - generic [ref=e1152]:
+                  - generic [ref=e1153]: Handoff
+                  - generic [ref=e1154]: +Webhook
+            - generic [ref=e1155]:
+              - generic [ref=e1156]: VOC
+              - generic [ref=e1157]:
+                - paragraph [ref=e1158]: Voice
+                - generic [ref=e1159]:
+                  - generic [ref=e1160]: Transcript
+                  - generic [ref=e1161]: +STT
+            - generic [ref=e1162]:
+              - generic [ref=e1163]: SOC
+              - generic [ref=e1164]:
+                - paragraph [ref=e1165]: Social
+                - generic [ref=e1166]:
+                  - generic [ref=e1167]: Public risk
+                  - generic [ref=e1168]: +Meta/X
+            - generic [ref=e1169]:
+              - generic [ref=e1170]: EML
+              - generic [ref=e1171]:
+                - paragraph [ref=e1172]: Email
+                - generic [ref=e1173]:
+                  - generic [ref=e1174]: Thread-aware
+                  - generic [ref=e1175]: +IMAP
+      - generic [ref=e1177]:
+        - generic [ref=e1178]:
+          - generic [ref=e1179]:
+            - text: Live simulation
+            - heading "How UCCD resolves a complaint" [level=2] [ref=e1180]
+          - generic [ref=e1182]:
+            - paragraph [ref=e1183]: The active block opens in the center, shows its data, then hands the case to the next system block.
+            - link "View platform surfaces" [ref=e1184] [cursor=pointer]:
+              - /url: "#platform"
+              - text: View platform surfaces
+              - img [ref=e1185]
+        - generic [ref=e1187]:
+          - generic [ref=e1188]:
+            - generic [ref=e1190]:
+              - generic [ref=e1191]:
+                - generic [ref=e1192]: SIM-003
+                - generic [ref=e1193]: Portal
+              - heading "Loan closure delay" [level=3] [ref=e1194]
+            - generic [ref=e1195]:
+              - generic [ref=e1196]:
+                - button "Slow" [ref=e1197] [cursor=pointer]
+                - button "Normal" [ref=e1198] [cursor=pointer]
+                - button "Fast" [ref=e1199] [cursor=pointer]
+              - generic [ref=e1200]:
+                - button "SIM-001" [ref=e1201] [cursor=pointer]
+                - button "SIM-002" [ref=e1202] [cursor=pointer]
+                - button "SIM-003" [ref=e1203] [cursor=pointer]
+          - generic [ref=e1204]:
+            - generic [ref=e1205]:
+              - button "Channel intake" [ref=e1209] [cursor=pointer]:
+                - img [ref=e1580]
+                - generic [ref=e1214]: Channel intake
+              - button "Normalize" [ref=e1215] [cursor=pointer]:
+                - img [ref=e1583]
+                - generic [ref=e1223]: Normalize
+              - button "Agent orchestrator" [ref=e1224] [cursor=pointer]:
+                - img [ref=e1587]
+                - generic [ref=e1231]: Agent orchestrator
+              - button "Route + resolve" [ref=e1232] [cursor=pointer]:
+                - img [ref=e1235]
+                - generic [ref=e1240]: Route + resolve
+              - paragraph [ref=e1242]: Unified complaint envelope
+            - generic [ref=e1591]:
+              - generic [ref=e1592]:
+                - img [ref=e1593]
+                - paragraph [ref=e1597]: Unified complaint envelope
+              - heading "Normalize channel data" [level=3] [ref=e1598]
+              - generic [ref=e1599]:
+                - generic [ref=e1600]:
+                  - generic [ref=e1601]:
+                    - img [ref=e1602]
+                    - paragraph [ref=e1605]: channel
+                  - paragraph [ref=e1606]: portal
+                - generic [ref=e1607]:
+                  - generic [ref=e1608]:
+                    - img [ref=e1609]
+                    - paragraph [ref=e1612]: product
+                  - paragraph [ref=e1613]: personal loan
+                - generic [ref=e1614]:
+                  - generic [ref=e1615]:
+                    - img [ref=e1616]
+                    - paragraph [ref=e1619]: issue
+                  - paragraph [ref=e1620]: closure certificate delay
+                - generic [ref=e1621]:
+                  - generic [ref=e1622]:
+                    - img [ref=e1623]
+                    - paragraph [ref=e1626]: evidence
+                  - paragraph [ref=e1627]: closure request ID
+      - generic [ref=e1282]:
+        - article [ref=e1283]:
+          - generic [ref=e1284]: "1"
+          - generic [ref=e1285]:
+            - heading "Ingest and normalize" [level=3] [ref=e1286]
+            - paragraph [ref=e1287]: Channel data becomes one complaint record with source context and evidence.
+          - generic [ref=e1291]:
+            - generic [ref=e1292]: Email
+            - generic [ref=e1295]: Social
+            - generic [ref=e1298]: Voice
+            - generic [ref=e1301]: Regulator
+        - article [ref=e1304]:
+          - generic [ref=e1305]: "2"
+          - generic [ref=e1306]:
+            - heading "Analyze in parallel" [level=3] [ref=e1307]
+            - paragraph [ref=e1308]: AI agents classify, score, deduplicate, predict breach risk, and suggest next action.
+          - generic [ref=e1310]:
+            - generic [ref=e1311]:
+              - paragraph [ref=e1314]: NLP
+              - paragraph [ref=e1315]: output ready
+            - generic [ref=e1316]:
+              - paragraph [ref=e1319]: DNA
+              - paragraph [ref=e1320]: output ready
+            - generic [ref=e1321]:
+              - paragraph [ref=e1324]: SLA
+              - paragraph [ref=e1325]: output ready
+            - generic [ref=e1326]:
+              - paragraph [ref=e1329]: RCA
+              - paragraph [ref=e1330]: output ready
+        - article [ref=e1331]:
+          - generic [ref=e1332]: "3"
+          - generic [ref=e1333]:
+            - heading "Route and resolve" [level=3] [ref=e1334]
+            - paragraph [ref=e1335]: The right team gets the case, drafts a compliant response, and feeds learning back.
+          - generic [ref=e1338]:
+            - generic [ref=e1339]:
+              - generic [ref=e1340]: Route
+              - generic [ref=e1341]: SLA safe
+            - generic [ref=e1342]:
+              - generic [ref=e1345]: Fraud Ops
+              - generic [ref=e1348]: Draft
+              - generic [ref=e1351]: Audit
+              - generic [ref=e1354]: Closed
+      - generic [ref=e1356]:
+        - heading "Role-specific dashboards, built around complaint operations" [level=2] [ref=e1357]
+        - generic [ref=e1359]:
+          - blockquote [ref=e1360]: “The agent screen keeps SLA, complaint history, draft response, and similar cases in one place, so handoffs are much cleaner.”
+          - generic [ref=e1361]:
+            - generic [ref=e1362]:
+              - paragraph [ref=e1363]: Agent Workspace
+              - paragraph [ref=e1364]: Daily complaint handling
+            - generic [ref=e1365]:
+              - button "< Previous" [ref=e1366] [cursor=pointer]
+              - button "Next >" [ref=e1367] [cursor=pointer]
+      - generic [ref=e1369]:
+        - generic [ref=e1370]:
+          - heading "Four operational surfaces. One complaint truth." [level=2] [ref=e1371]:
+            - text: Four operational surfaces.
+            - text: One complaint truth.
+          - paragraph [ref=e1372]: Agents, supervisors, compliance officers, and analysts see the same case record through role-specific controls.
+        - generic [ref=e1373]:
+          - generic [ref=e1374]: Live mode
+          - switch [checked] [ref=e1375] [cursor=pointer]
+          - generic [ref=e1377]: Simulation
+          - generic [ref=e1378]: What-if ready
+        - generic [ref=e1379]:
+          - article [ref=e1380]:
+            - heading "Agent Workspace" [level=3] [ref=e1381]
+            - paragraph [ref=e1382]: 360 view
+            - paragraph [ref=e1383]: One screen for case history, AI guidance, response drafting, and audit trail
+            - list [ref=e1384]:
+              - listitem [ref=e1385]:
+                - generic [ref=e1386]: ✓
+                - text: Unified timeline
+              - listitem [ref=e1387]:
+                - generic [ref=e1388]: ✓
+                - text: AI draft response
+              - listitem [ref=e1389]:
+                - generic [ref=e1390]: ✓
+                - text: Next-best action
+            - button "Open view" [ref=e1392] [cursor=pointer]
+          - article [ref=e1393]:
+            - generic [ref=e1394]: Priority surface
+            - heading "Supervisor HQ" [level=3] [ref=e1395]
+            - paragraph [ref=e1396]: SLA view
+            - paragraph [ref=e1397]: Queue health, escalation risk, workload balance, and intervention controls
+            - list [ref=e1398]:
+              - listitem [ref=e1399]:
+                - generic [ref=e1400]: ✓
+                - text: Breach prediction
+              - listitem [ref=e1401]:
+                - generic [ref=e1402]: ✓
+                - text: Team heatmap
+              - listitem [ref=e1403]:
+                - generic [ref=e1404]: ✓
+                - text: Priority routing
+              - listitem [ref=e1405]:
+                - generic [ref=e1406]: ✓
+                - text: Load signals
+            - button "Monitor queue" [ref=e1408] [cursor=pointer]
+          - article [ref=e1409]:
+            - heading "Regulatory View" [level=3] [ref=e1410]
+            - paragraph [ref=e1411]: RBI view
+            - paragraph [ref=e1412]: Formal complaint tracking, filing deadlines, evidence, and report generation
+            - list [ref=e1413]:
+              - listitem [ref=e1414]:
+                - generic [ref=e1415]: ✓
+                - text: Deadline tracker
+              - listitem [ref=e1416]:
+                - generic [ref=e1417]: ✓
+                - text: Compliance flags
+              - listitem [ref=e1418]:
+                - generic [ref=e1419]: ✓
+                - text: Evidence links
+              - listitem [ref=e1420]:
+                - generic [ref=e1421]: ✓
+                - text: Exportable reports
+            - button "Review cases" [ref=e1423] [cursor=pointer]
+      - generic [ref=e1425]:
+        - generic [ref=e1426]:
+          - generic [ref=e1427]:
+            - text: Developer API
+            - heading "API docs for the OmniResol complaint platform" [level=2] [ref=e1428]
+          - paragraph [ref=e1429]: Browse implemented routes, payloads, response contracts, auth requirements, and error states using the same UCCD dashboard theme.
+        - generic [ref=e1430]:
+          - complementary [ref=e1431]:
+            - textbox "Search endpoints" [ref=e1432]
+            - generic [ref=e1433]:
+              - button "Authentication" [ref=e1434] [cursor=pointer]
+              - button "Complaints" [ref=e1435] [cursor=pointer]
+              - button "Dashboard & Analytics" [ref=e1436] [cursor=pointer]
+              - button "Agents & Simulation" [ref=e1437] [cursor=pointer]
+              - button "AI Helpers" [ref=e1438] [cursor=pointer]
+              - button "WebSocket" [ref=e1439] [cursor=pointer]
+              - button "⚠ Not Implemented" [ref=e1440] [cursor=pointer]
+            - button "POST /auth/login Authenticate an API client or agent and receive an access token." [ref=e1442] [cursor=pointer]:
+              - generic [ref=e1443]: POST
+              - paragraph [ref=e1444]: /auth/login
+              - paragraph [ref=e1445]: Authenticate an API client or agent and receive an access token.
+          - article [ref=e1446]:
+            - generic [ref=e1447]:
+              - generic [ref=e1448]:
+                - generic [ref=e1449]:
+                  - generic [ref=e1450]: POST
+                  - generic [ref=e1451]: Implemented
+                - heading "/auth/login" [level=3] [ref=e1452]
+                - paragraph [ref=e1453]: Authenticate an API client or agent and receive an access token.
+              - link "#post_auth_login" [ref=e1454] [cursor=pointer]:
+                - /url: "#post_auth_login"
+            - generic [ref=e1455]:
+              - generic [ref=e1456]:
+                - generic [ref=e1457]:
+                  - generic [ref=e1458]: Request Body
+                  - button "Copy" [ref=e1459] [cursor=pointer]
+                - code [ref=e1461]: "{ \"client_id\": \"omni_client_abc123\", \"client_secret\": \"sk_live_9876543210qwertyuiop\" }"
+              - generic [ref=e1462]:
+                - generic [ref=e1463]:
+                  - generic [ref=e1464]: 200 Response
+                  - button "Copy" [ref=e1465] [cursor=pointer]
+                - code [ref=e1467]: "{ \"access_token\": \"omni_token_a1b2c3d4e5f6g7h8i9j0\", \"token_type\": \"Bearer\", \"expires_in\": 3600, \"scope\": \"read_write_complaints\", \"created_at\": \"2026-05-22T17:10:35Z\" }"
+              - generic [ref=e1468]:
+                - paragraph [ref=e1469]: Error Responses
+                - generic [ref=e1470]:
+                  - generic [ref=e1471]:
+                    - generic [ref=e1472]:
+                      - generic [ref=e1473]: "400"
+                      - generic [ref=e1474]: Bad Request - Invalid credentials payload formatting
+                    - code [ref=e1476]: "{ \"error\": \"bad_request\", \"message\": \"The fields 'client_id' and 'client_secret' must be provided in valid string format.\" }"
+                  - generic [ref=e1477]:
+                    - generic [ref=e1478]:
+                      - generic [ref=e1479]: "401"
+                      - generic [ref=e1480]: Unauthorized - Client ID or Secret mismatch
+                    - code [ref=e1482]: "{ \"error\": \"invalid_client\", \"error_description\": \"The client identifier or client secret is incorrect.\" }"
+      - generic [ref=e1484]:
+        - generic [ref=e1485]:
+          - heading "UCCD Questions, Answered" [level=2] [ref=e1486]
+          - link "Explore platform" [ref=e1487] [cursor=pointer]:
+            - /url: "#platform"
+            - text: Explore platform
+            - img [ref=e1488]
+        - generic [ref=e1490]:
+          - generic [ref=e1491]:
+            - button "What is UCCD? +" [ref=e1493] [cursor=pointer]:
+              - text: What is UCCD?
+              - generic [ref=e1494]: +
+            - button "Which channels are supported? +" [ref=e1496] [cursor=pointer]:
+              - text: Which channels are supported?
+              - generic [ref=e1497]: +
+            - button "What do the AI agents produce? +" [ref=e1499] [cursor=pointer]:
+              - text: What do the AI agents produce?
+              - generic [ref=e1500]: +
+            - button "How does SLA prediction work? +" [ref=e1502] [cursor=pointer]:
+              - text: How does SLA prediction work?
+              - generic [ref=e1503]: +
+          - generic [ref=e1504]:
+            - button "Can compliance teams use it? +" [ref=e1506] [cursor=pointer]:
+              - text: Can compliance teams use it?
+              - generic [ref=e1507]: +
+            - button "Does it replace human agents? +" [ref=e1509] [cursor=pointer]:
+              - text: Does it replace human agents?
+              - generic [ref=e1510]: +
+            - button "What powers the AI stack? +" [ref=e1512] [cursor=pointer]:
+              - text: What powers the AI stack?
+              - generic [ref=e1513]: +
+            - button "Can it run a demo flow? +" [ref=e1515] [cursor=pointer]:
+              - text: Can it run a demo flow?
+              - generic [ref=e1516]: +
+      - generic [ref=e1519]:
+        - heading "Ready to run the UCCD resolution flow?" [level=2] [ref=e1522]
+        - paragraph [ref=e1523]: Start with one complaint and watch intake, AI triage, routing, SLA risk, and response drafting come together in a single dashboard.
+        - generic [ref=e1524]:
+          - button "Request demo" [ref=e1525] [cursor=pointer]
+          - link "Login" [ref=e1526] [cursor=pointer]:
+            - /url: /login
+    - contentinfo [ref=e1527]:
+      - generic [ref=e1528]:
+        - generic [ref=e1529]:
+          - generic [ref=e1530]:
+            - generic [ref=e1531]: GQ
+            - generic [ref=e1532]: Powered by Groq
+          - generic [ref=e1533]:
+            - generic [ref=e1534]: SA
+            - generic [ref=e1535]: Sarvam AI
+          - generic [ref=e1536]:
+            - generic [ref=e1537]: RD
+            - generic [ref=e1538]: Redis
+          - generic [ref=e1539]:
+            - generic [ref=e1540]: DK
+            - generic [ref=e1541]: Docker
+          - generic [ref=e1542]:
+            - generic [ref=e1543]: FA
+            - generic [ref=e1544]: FastAPI
+          - generic [ref=e1545]:
+            - generic [ref=e1546]: RX
+            - generic [ref=e1547]: React
+          - generic [ref=e1548]:
+            - generic [ref=e1549]: PG
+            - generic [ref=e1550]: Neon PostgreSQL
+          - generic [ref=e1551]:
+            - generic [ref=e1552]: UC
+            - generic [ref=e1553]: UCCD OmniResol
+        - generic [ref=e1554]:
+          - generic [ref=e1555]:
+            - generic [ref=e1556]: GQ
+            - generic [ref=e1557]: Powered by Groq
+          - generic [ref=e1558]:
+            - generic [ref=e1559]: SA
+            - generic [ref=e1560]: Sarvam AI
+          - generic [ref=e1561]:
+            - generic [ref=e1562]: RD
+            - generic [ref=e1563]: Redis
+          - generic [ref=e1564]:
+            - generic [ref=e1565]: DK
+            - generic [ref=e1566]: Docker
+          - generic [ref=e1567]:
+            - generic [ref=e1568]: FA
+            - generic [ref=e1569]: FastAPI
+          - generic [ref=e1570]:
+            - generic [ref=e1571]: RX
+            - generic [ref=e1572]: React
+          - generic [ref=e1573]:
+            - generic [ref=e1574]: PG
+            - generic [ref=e1575]: Neon PostgreSQL
+          - generic [ref=e1576]:
+            - generic [ref=e1577]: UC
+            - generic [ref=e1578]: UCCD OmniResol
+  - region "Notifications (F8)":
+    - list
+  - button "Open Next.js Dev Tools" [ref=e788] [cursor=pointer]:
+    - img [ref=e789]
+  - alert [ref=e1579]

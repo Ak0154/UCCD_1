@@ -107,7 +107,10 @@ class InstagramChannel(BaseChannel):
             from instagrapi import Client
             from instagrapi.exceptions import (
                 ChallengeRequired,
+<<<<<<< HEAD
                 ChallengeUnknownStep,
+=======
+>>>>>>> 8da1ee857c0d06a80981e984344b32420cbd79f4
                 LoginRequired,
                 PleaseWaitFewMinutes,
             )
@@ -136,6 +139,7 @@ class InstagramChannel(BaseChannel):
                     except OSError:
                         pass
 
+<<<<<<< HEAD
             if not logged_in and self._settings.sessionid:
                 try:
                     self._client.login_by_sessionid(self._settings.sessionid)
@@ -147,6 +151,8 @@ class InstagramChannel(BaseChannel):
                 except Exception as e:
                     logger.warning("Instagram cookie-based auth failed: %s", e)
 
+=======
+>>>>>>> 8da1ee857c0d06a80981e984344b32420cbd79f4
             if not logged_in:
                 try:
                     self._client.login(self._settings.username, self._settings.password)
@@ -158,6 +164,7 @@ class InstagramChannel(BaseChannel):
                         "Run: python scripts/setup_instagram_session.py"
                     )
                     return
+<<<<<<< HEAD
                 except ChallengeUnknownStep as e:
                     err_msg = str(e)
                     logger.error("Instagram challenge flow not supported by instagrapi: %s", err_msg)
@@ -167,6 +174,8 @@ class InstagramChannel(BaseChannel):
                         "or restart the bot.", self._settings.username
                     )
                     return
+=======
+>>>>>>> 8da1ee857c0d06a80981e984344b32420cbd79f4
                 except PleaseWaitFewMinutes:
                     logger.error("Instagram is rate-limiting. Wait a few minutes and restart.")
                     return
@@ -332,7 +341,11 @@ class InstagramChannel(BaseChannel):
                         self._last_seen_message_ids.add(msg_id)
                         newly_processed = True
                         text_strip = text.strip()
+<<<<<<< HEAD
                         logger.warning("Instagram DM from %s: '%s...'", sender_id, text_strip[:40])
+=======
+                        logger.info(f"Instagram DM from {sender_id}: '{text_strip[:40]}...'")
+>>>>>>> 8da1ee857c0d06a80981e984344b32420cbd79f4
 
                         self._handle_dm(sender_id, text_strip, thread_id, api_host)
 

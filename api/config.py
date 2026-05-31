@@ -25,6 +25,7 @@ class EmailConversationSettings(BaseModel):
 
 class TwitterSettings(BaseModel):
     username: str = ""
+<<<<<<< HEAD
     api_key: str = ""
     api_secret: str = ""
     bearer_token: str = ""
@@ -40,6 +41,15 @@ class TwitterSettings(BaseModel):
             and self.access_token
             and self.access_token_secret
         )
+=======
+    password: str = ""
+    email: str = ""
+    auth_token: str = ""
+    monitor_mentions: bool = True
+
+    def is_configured(self) -> bool:
+        return bool(self.username and (self.password or self.auth_token))
+>>>>>>> 8da1ee857c0d06a80981e984344b32420cbd79f4
 
 
 class InstagramSettings(BaseModel):
@@ -115,11 +125,17 @@ class Settings(BaseModel):
             ),
             twitter=TwitterSettings(
                 username=os.getenv("TWITTER_USERNAME", ""),
+<<<<<<< HEAD
                 api_key=os.getenv("TWITTER_API_KEY", ""),
                 api_secret=os.getenv("TWITTER_API_SECRET", ""),
                 bearer_token=os.getenv("TWITTER_BEARER_TOKEN", ""),
                 access_token=os.getenv("TWITTER_ACCESS_TOKEN", ""),
                 access_token_secret=os.getenv("TWITTER_ACCESS_TOKEN_SECRET", ""),
+=======
+                password=os.getenv("TWITTER_PASSWORD", ""),
+                email=os.getenv("TWITTER_EMAIL", ""),
+                auth_token=os.getenv("TWITTER_AUTH_TOKEN", ""),
+>>>>>>> 8da1ee857c0d06a80981e984344b32420cbd79f4
                 monitor_mentions=os.getenv("TWITTER_MONITOR_MENTIONS", "true").lower() != "false",
             ),
             instagram=InstagramSettings(

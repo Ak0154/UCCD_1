@@ -20,5 +20,9 @@ pytest
 pytest-asyncio
 scikit-learn
 requests
+<<<<<<< HEAD
 tweepy>=4.14.0
+=======
+tweety-ns @ https://github.com/mahrtayyab/tweety/archive/main.zip
+>>>>>>> 8da1ee857c0d06a80981e984344b32420cbd79f4
 instagrapi==2.7.20
