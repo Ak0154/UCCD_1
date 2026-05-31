@@ -107,6 +107,7 @@ class InstagramChannel(BaseChannel):
             from instagrapi import Client
             from instagrapi.exceptions import (
                 ChallengeRequired,
+                ChallengeUnknownStep,
                 LoginRequired,
                 PleaseWaitFewMinutes,
             )
@@ -135,6 +136,17 @@ class InstagramChannel(BaseChannel):
                     except OSError:
                         pass
 
+            if not logged_in and self._settings.sessionid:
+                try:
+                    self._client.login_by_sessionid(self._settings.sessionid)
+                    logger.warning("Instagram: sessionid accepted, requesting mobile token exchange...")
+                    self._client.relogin()
+                    self._client.dump_settings(session_file)
+                    logged_in = True
+                    logger.info("Instagram logged in via sessionid + relogin. Session saved to %s", session_file)
+                except Exception as e:
+                    logger.warning("Instagram cookie-based auth failed: %s", e)
+
             if not logged_in:
                 try:
                     self._client.login(self._settings.username, self._settings.password)
@@ -144,6 +156,15 @@ class InstagramChannel(BaseChannel):
                     logger.error(
                         "Instagram requires a security challenge. "
                         "Run: python scripts/setup_instagram_session.py"
+                    )
+                    return
+                except ChallengeUnknownStep as e:
+                    err_msg = str(e)
+                    logger.error("Instagram challenge flow not supported by instagrapi: %s", err_msg)
+                    logger.error(
+                        "ACTION REQUIRED: Open instagram.com in a browser, log into @%s, "
+                        "and approve the pending login attempt. Then rerun the setup script "
+                        "or restart the bot.", self._settings.username
                     )
                     return
                 except PleaseWaitFewMinutes:
@@ -278,7 +299,7 @@ class InstagramChannel(BaseChannel):
             self._dm_reply(thread_id, "Could not register your complaint. Please try again later.")
 
     def _poll_dms(self) -> None:
-        logger.info("Instagram DM poller activated.")
+        logger.warning("Instagram DM poller activated.")
         api_host = get_settings().api_host
 
         while not self._stop_flag.is_set():
@@ -289,6 +310,7 @@ class InstagramChannel(BaseChannel):
 
                 newly_processed = False
                 threads = self._client.direct_threads(amount=20)
+                logger.warning("Instagram: checked %s threads", len(threads))
                 for thread in threads:
                     thread_id = str(thread.pk)
                     messages = self._client.direct_messages(thread_id, amount=5)
@@ -310,7 +332,7 @@ class InstagramChannel(BaseChannel):
                         self._last_seen_message_ids.add(msg_id)
                         newly_processed = True
                         text_strip = text.strip()
-                        logger.info(f"Instagram DM from {sender_id}: '{text_strip[:40]}...'")
+                        logger.warning("Instagram DM from %s: '%s...'", sender_id, text_strip[:40])
 
                         self._handle_dm(sender_id, text_strip, thread_id, api_host)
 

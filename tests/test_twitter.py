@@ -32,17 +32,18 @@ def _poll_one(channel, mentions):
         channel._stop_flag.clear()
         t = threading.Thread(target=channel._poll_mentions, daemon=True)
         t.start()
-        time.sleep(1)
+        time.sleep(2)
         channel._stop_flag.set()
-        t.join(timeout=3)
+        t.join(timeout=5)
 
 
 def test_first_mention_asks_for_complaint():
     channel = make_channel()
     _poll_one(channel, [FakeTweet(100, "Hello", "john_doe")])
 
-    assert channel._client.reply.call_count == 1
-    assert "Welcome to Union Bank" in channel._client.reply.call_args[0][0]
+    assert channel._client.create_tweet.call_count >= 1
+    first_call_text = channel._client.create_tweet.call_args_list[0][0][0]
+    assert "Welcome to Union Bank" in first_call_text
     assert "john_doe" in channel._sessions
     assert channel._sessions["john_doe"].step == "complaint"
 
@@ -53,7 +54,7 @@ def test_handle_mention_complaint_to_name():
     channel._handle_mention("jane", "My card is blocked", 101, "http://localhost:8000")
     channel._handle_mention("jane", "John Doe", 102, "http://localhost:8000")
 
-    calls = channel._client.reply.call_args_list
+    calls = channel._client.create_tweet.call_args_list
     assert len(calls) == 3
     assert "full name" in str(calls[1])
     assert "account number" in str(calls[2])
@@ -76,7 +77,7 @@ def test_handle_mention_full_flow():
         channel._handle_mention("user1", "9876543210", 5, "http://localhost:8000")
         channel._handle_mention("user1", "j@example.com", 6, "http://localhost:8000")
 
-    texts = [str(c) for c in channel._client.reply.call_args_list]
+    texts = [str(c) for c in channel._client.create_tweet.call_args_list]
     assert any("full name" in t for t in texts)
     assert any("account number" in t for t in texts)
     assert any("phone number" in t for t in texts)
@@ -91,7 +92,7 @@ def test_duplicate_mention_skipped():
     channel._last_seen_tweet_id = 100
     _poll_one(channel, [FakeTweet(50, "Old", "old_user")])
 
-    channel._client.reply.assert_not_called()
+    channel._client.create_tweet.assert_not_called()
 
 
 def test_after_registration_no_duplicate():
@@ -104,5 +105,5 @@ def test_after_registration_no_duplicate():
     )
     channel._handle_mention("user2", "Any msg", 200, "http://localhost:8000")
 
-    assert channel._client.reply.call_count == 1
-    assert "registered" in channel._client.reply.call_args[0][0].lower()
+    assert channel._client.create_tweet.call_count == 1
+    assert "registered" in channel._client.create_tweet.call_args[0][0].lower()

@@ -32,3 +32,6 @@ Thumbs.db
 # Frontend
 frontend/node_modules/
 frontend/dist/
+
+#Instagram 
+instagram_session.json

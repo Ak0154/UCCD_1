@@ -1,10 +1,11 @@
-import asyncio
 import json
 import logging
 import os
 import threading
 import time
 from dataclasses import dataclass
+
+import tweepy
 
 from services.channels.base import BaseChannel
 from api.config import get_settings
@@ -44,7 +45,8 @@ class TwitterChannel(BaseChannel):
         settings = get_settings()
         self._settings = settings.twitter
         self.username = self._settings.username
-        self._client = None
+        self._client: tweepy.Client | None = None
+        self._own_user_id: str | None = None
         self._last_seen_tweet_id: int | None = None
         self._thread: threading.Thread | None = None
         self._stop_flag = threading.Event()
@@ -73,50 +75,34 @@ class TwitterChannel(BaseChannel):
 
     async def start(self) -> None:
         if not self.is_configured():
-            logger.warning("Twitter userbot not configured. Skipping.")
+            logger.warning("Twitter not configured. Skipping.")
             return
 
         try:
-            from tweety import Twitter as TweetyClient
-            from tweety.exceptions import (
-                ActionRequired as TweetyActionRequired,
-                DeniedLogin as TweetyDeniedLogin,
+            self._client = tweepy.Client(
+                bearer_token=self._settings.bearer_token,
+                consumer_key=self._settings.api_key,
+                consumer_secret=self._settings.api_secret,
+                access_token=self._settings.access_token,
+                access_token_secret=self._settings.access_token_secret,
+                wait_on_rate_limit=True,
             )
 
-            self._client = TweetyClient(self.username)
+            me = self._client.get_me()
+            if not me or not me.data:
+                logger.error("Twitter: could not verify credentials.")
+                self._client = None
+                return
 
-            if self._settings.auth_token:
-                logger.warning("Twitter: authenticating via auth_token cookie for @%s...", self.username)
-                await self._client.load_auth_token(self._settings.auth_token)
-            else:
-                await self._client.sign_in(
-                    self.username,
-                    self._settings.password,
-                    extra=self._settings.email or None,
-                )
-        except ImportError:
-            logger.error("tweety-ns package not installed. Install with: pip install tweety-ns")
-            self._client = None
-            return
-        except TweetyActionRequired as e:
-            logger.error(
-                f"Twitter login requires additional action: {e.message}. "
-                "You may need to provide a 2FA code or solve a captcha. "
-                "Check your Twitter account security settings."
+            self._own_user_id = str(me.data.id)
+            logger.warning(
+                "Twitter: authenticated as @%s (id=%s)",
+                me.data.username,
+                self._own_user_id,
             )
-            self._client = None
-            return
-        except TweetyDeniedLogin as e:
-            logger.error(f"Twitter login denied (invalid auth_token?): {e}")
-            self._client = None
-            return
+
         except Exception as e:
-            logger.error(f"Twitter sign-in failed: {e}")
-            self._client = None
-            return
-
-        if self._client.me is None:
-            logger.error("Twitter sign-in completed but user is not authenticated. Polling disabled.")
+            logger.error("Twitter auth failed: %s", e)
             self._client = None
             return
 
@@ -131,72 +117,62 @@ class TwitterChannel(BaseChannel):
             self._thread.join(timeout=5)
         logger.warning("TwitterChannel stopped.")
 
-    def _is_authenticated(self) -> bool:
-        return self._client is not None and self._client.me is not None
-
-    def _reply(self, tid: int, text: str) -> bool:
-        if not self._is_authenticated():
-            logger.error("Twitter _reply: client is None (not authenticated)")
+    def _reply(self, tweet_id: int, text: str, screen_name: str) -> bool:
+        if self._client is None:
             return False
         try:
-            self._client.create_tweet(text[:280], reply_to=tid)
-            self._log_outbound(str(tid), text[:280], True, None)
+            self._client.create_tweet(
+                text=f"@{screen_name} {text}"[:280],
+                in_reply_to_tweet_id=tweet_id,
+            )
+            self._log_outbound(str(tweet_id), text[:280], True, None)
             return True
         except Exception as e:
-            self._log_outbound(str(tid), text[:280], False, str(e))
-            logger.error(f"Twitter reply failed: {e}")
+            self._log_outbound(str(tweet_id), text[:280], False, str(e))
+            logger.error("Twitter reply failed: %s", e)
             return False
 
     def _handle_mention(self, screen_name: str, text_strip: str, tid: int, api_host: str) -> None:
         if screen_name not in self._sessions:
             self._sessions[screen_name] = UserSession(screen_name=screen_name)
-            if not self._reply(tid,
-                f"@{screen_name} Welcome to Union Bank of India Support!\n\nPlease describe your complaint or issue in detail."
-            ):
-                logger.warning("Twitter: failed to send welcome reply to @%s (tid=%d)", screen_name, tid)
+            if not self._reply(tid, "Welcome to Union Bank of India Support!\n\nPlease describe your complaint or issue in detail.", screen_name):
+                logger.warning("Twitter: failed to send welcome reply to @%s", screen_name)
             return
 
         session = self._sessions[screen_name]
 
         if text_strip.lower() in ("/start", "/reset"):
             self._sessions[screen_name] = UserSession(screen_name=screen_name)
-            if not self._reply(tid, f"@{screen_name} Session reset. Please describe your complaint or issue in detail."):
-                logger.warning("Twitter: failed to send reset reply to @%s (tid=%d)", screen_name, tid)
+            if not self._reply(tid, "Session reset. Please describe your complaint or issue in detail.", screen_name):
+                logger.warning("Twitter: failed to send reset reply to @%s", screen_name)
             return
 
         if session.step == "registered":
-            if not self._reply(tid,
-                f"@{screen_name} Your complaint is registered. Ticket ID: {session.complaint_id}. You will be notified when it is resolved."
-            ):
-                logger.warning("Twitter: failed to send registered reply to @%s (tid=%d)", screen_name, tid)
+            self._reply(tid, f"Your complaint is registered. Ticket ID: {session.complaint_id}. You will be notified when it is resolved.", screen_name)
             return
 
         if session.step == "complaint":
             session.complaint_text = text_strip
             session.step = "name"
-            if not self._reply(tid, f"@{screen_name} {STEP_PROMPTS['name']}"):
-                logger.warning("Twitter: failed to send name prompt to @%s (tid=%d)", screen_name, tid)
+            self._reply(tid, STEP_PROMPTS["name"], screen_name)
             return
 
         if session.step == "name":
             session.name = text_strip
             session.step = "account_no"
-            if not self._reply(tid, f"@{screen_name} {STEP_PROMPTS['account_no']}"):
-                logger.warning("Twitter: failed to send account prompt to @%s (tid=%d)", screen_name, tid)
+            self._reply(tid, STEP_PROMPTS["account_no"], screen_name)
             return
 
         if session.step == "account_no":
             session.account_no = text_strip
             session.step = "phone"
-            if not self._reply(tid, f"@{screen_name} {STEP_PROMPTS['phone']}"):
-                logger.warning("Twitter: failed to send phone prompt to @%s (tid=%d)", screen_name, tid)
+            self._reply(tid, STEP_PROMPTS["phone"], screen_name)
             return
 
         if session.step == "phone":
             session.phone = text_strip
             session.step = "email"
-            if not self._reply(tid, f"@{screen_name} {STEP_PROMPTS['email']}"):
-                logger.warning("Twitter: failed to send email prompt to @%s (tid=%d)", screen_name, tid)
+            self._reply(tid, STEP_PROMPTS["email"], screen_name)
             return
 
         if session.step == "email":
@@ -234,21 +210,17 @@ class TwitterChannel(BaseChannel):
                 except Exception:
                     pass
 
-                self._reply(tid,
-                    f"@{session.screen_name} Complaint Registered!\n"
-                    f"Ticket ID: {session.complaint_id}\n"
-                    f"Name: {session.name}\n"
-                    f"Account: {session.account_no}\n"
-                    f"Phone: {session.phone}\n"
-                    f"Email: {session.email}\n\n"
-                    f"Our team is reviewing your case. You will be notified when it is resolved."
+                self._reply(
+                    tid,
+                    f"Complaint Registered! Ticket ID: {session.complaint_id}. Name: {session.name}. Our team is reviewing your case.",
+                    session.screen_name,
                 )
             else:
-                logger.warning(f"API returned status {res.status_code}: {res.text}")
-                self._reply(tid, f"@{session.screen_name} Could not register your complaint. Please try again later.")
+                logger.warning("API returned status %s: %s", res.status_code, res.text)
+                self._reply(tid, "Could not register your complaint. Please try again later.", session.screen_name)
         except Exception as api_err:
-            logger.warning(f"Failed to create Twitter complaint: {api_err}")
-            self._reply(tid, f"@{session.screen_name} Could not register your complaint. Please try again later.")
+            logger.warning("Failed to create Twitter complaint: %s", api_err)
+            self._reply(tid, "Could not register your complaint. Please try again later.", session.screen_name)
 
     def _poll_mentions(self) -> None:
         logger.warning("Twitter mention poller activated for @%s", self.username)
@@ -257,65 +229,93 @@ class TwitterChannel(BaseChannel):
 
         while not self._stop_flag.is_set():
             try:
-                if not self._is_authenticated():
+                if self._client is None:
                     logger.warning("Twitter poller: client not authenticated, waiting...")
                     time.sleep(30)
                     continue
 
-                mentions = self._client.get_mentions()
+                kwargs = {
+                    "id": self._own_user_id,
+                    "expansions": ["author_id"],
+                    "tweet_fields": ["author_id", "created_at", "text"],
+                    "user_fields": ["username"],
+                    "max_results": 10,
+                }
+                if self._last_seen_tweet_id:
+                    kwargs["since_id"] = self._last_seen_tweet_id
+
+                response = self._client.get_users_mentions(**kwargs)
                 cycle_count += 1
 
-                if cycle_count % 10 == 0:
-                    logger.warning(
-                        "Twitter poller heartbeat: cycle=%d, mentions=%d, last_seen_id=%s",
-                        cycle_count,
-                        len(mentions) if mentions else 0,
-                        self._last_seen_tweet_id,
-                    )
+                meta = getattr(response, "meta", {}) or {}
+                result_count = meta.get("result_count", 0) if isinstance(meta, dict) else 0
+                errors = getattr(response, "errors", []) or []
 
-                if not mentions:
-                    time.sleep(30)
+                logger.warning(
+                    "Twitter poller cycle=%d, mentions=%d, meta_result_count=%s, errors=%s, last_seen_id=%s",
+                    cycle_count,
+                    len(response.data) if response.data else 0,
+                    result_count,
+                    errors,
+                    self._last_seen_tweet_id,
+                )
+
+                if errors:
+                    logger.error("Twitter API errors: %s", errors)
+
+                if not response.data:
                     continue
 
-                max_seen = self._last_seen_tweet_id or 0
-                for tweet in mentions:
-                    tid = int(getattr(tweet, "id", 0))
-                    if tid <= max_seen:
-                        continue
-                    max_seen = max(max_seen, tid)
-                    text = getattr(tweet, "text", "")
-                    author = getattr(tweet, "author", {})
-                    screen_name = getattr(author, "screen_name", "unknown") if hasattr(author, "screen_name") else "unknown"
+                users = {}
+                if response.includes and "users" in response.includes:
+                    for u in response.includes["users"]:
+                        users[str(u.id)] = u.username
 
+                max_seen = self._last_seen_tweet_id or 0
+
+                for tweet in reversed(response.data):
+                    tid = int(tweet.id)
+                    max_seen = max(max_seen, tid)
+
+                    author_id = str(tweet.author_id) if tweet.author_id else None
+                    screen_name = users.get(author_id, "unknown") if author_id else "unknown"
+
+                    if author_id == self._own_user_id:
+                        continue
+
+                    text = tweet.text or ""
                     if not text:
                         continue
 
                     text_strip = text.strip()
-                    logger.warning("Twitter mention from @%s: '%s...'", screen_name, text_strip[:40])
-
+                    logger.warning("Twitter mention from @%s (id=%d): '%s...'", screen_name, tid, text_strip[:40])
                     self._handle_mention(screen_name, text_strip, tid, api_host)
 
                 self._save_last_seen(max_seen)
                 self._last_seen_tweet_id = max_seen
 
+            except tweepy.TooManyRequests:
+                logger.warning("Twitter rate limit hit, sleeping 15 minutes...")
+                time.sleep(900)
+                continue
             except Exception as e:
-                logger.error(f"Error in Twitter polling: {e}")
+                logger.error("Error in Twitter polling: %s", e)
             finally:
                 time.sleep(60)
 
     async def send_message(self, source_ref: str, text: str, **kwargs) -> bool:
-        if not self._is_authenticated():
+        if self._client is None:
             logger.error("Twitter client not authenticated")
             return False
 
         truncated = text[:280]
         try:
-            await self._client.create_tweet(truncated, reply_to=int(source_ref))
+            self._client.create_tweet(truncated, in_reply_to_tweet_id=int(source_ref))
             self._log_outbound(source_ref, truncated, True, None)
             return True
         except Exception as e:
             self._log_outbound(source_ref, truncated, False, str(e))
-            logger.error(f"Twitter send_message failed: {e}")
+            logger.error("Twitter send_message failed: %s", e)
             return False
 
     def _log_outbound(self, source_ref: str, text: str, success: bool, error: str | None) -> None:

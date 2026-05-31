@@ -48,13 +48,13 @@ def _register_channels() -> None:
     from services.channels.email import EmailChannel
     from services.channels.whatsapp import WhatsAppChannel
     from services.channels.twitter import TwitterChannel
-    from services.channels.instagram import InstagramChannel
+    # from services.channels.instagram import InstagramChannel
 
     register(TelegramChannel())
     register(EmailChannel())
     register(WhatsAppChannel())
     register(TwitterChannel())
-    register(InstagramChannel())
+    # register(InstagramChannel())
 
 
 @asynccontextmanager

@@ -25,13 +25,21 @@ class EmailConversationSettings(BaseModel):
 
 class TwitterSettings(BaseModel):
     username: str = ""
-    password: str = ""
-    email: str = ""
-    auth_token: str = ""
+    api_key: str = ""
+    api_secret: str = ""
+    bearer_token: str = ""
+    access_token: str = ""
+    access_token_secret: str = ""
     monitor_mentions: bool = True
 
     def is_configured(self) -> bool:
-        return bool(self.username and (self.password or self.auth_token))
+        return bool(
+            self.api_key
+            and self.api_secret
+            and self.bearer_token
+            and self.access_token
+            and self.access_token_secret
+        )
 
 
 class InstagramSettings(BaseModel):
@@ -39,9 +47,10 @@ class InstagramSettings(BaseModel):
     password: str = ""
     session_file: str = "instagram_session.json"
     verification_code_handler: str = "console"
+    sessionid: str = ""
 
     def is_configured(self) -> bool:
-        return bool(self.username and self.password)
+        return bool(self.username and self.password) or bool(self.sessionid)
 
 
 class WhatsAppSettings(BaseModel):
@@ -106,9 +115,11 @@ class Settings(BaseModel):
             ),
             twitter=TwitterSettings(
                 username=os.getenv("TWITTER_USERNAME", ""),
-                password=os.getenv("TWITTER_PASSWORD", ""),
-                email=os.getenv("TWITTER_EMAIL", ""),
-                auth_token=os.getenv("TWITTER_AUTH_TOKEN", ""),
+                api_key=os.getenv("TWITTER_API_KEY", ""),
+                api_secret=os.getenv("TWITTER_API_SECRET", ""),
+                bearer_token=os.getenv("TWITTER_BEARER_TOKEN", ""),
+                access_token=os.getenv("TWITTER_ACCESS_TOKEN", ""),
+                access_token_secret=os.getenv("TWITTER_ACCESS_TOKEN_SECRET", ""),
                 monitor_mentions=os.getenv("TWITTER_MONITOR_MENTIONS", "true").lower() != "false",
             ),
             instagram=InstagramSettings(
@@ -116,6 +127,7 @@ class Settings(BaseModel):
                 password=os.getenv("INSTAGRAM_PASSWORD", ""),
                 session_file=os.getenv("INSTAGRAM_SESSION_FILE", "instagram_session.json"),
                 verification_code_handler=os.getenv("INSTAGRAM_VERIFICATION_HANDLER", "console"),
+                sessionid=os.getenv("INSTAGRAM_SESSIONID", ""),
             ),
             whatsapp=WhatsAppSettings(
                 openwa_base_url=os.getenv("OPENWA_BASE_URL", "http://localhost:8081"),

@@ -42,6 +42,7 @@ def setup_session():
     from instagrapi import Client
     from instagrapi.exceptions import (
         ChallengeRequired,
+        ChallengeUnknownStep,
         LoginRequired,
         PleaseWaitFewMinutes,
     )
@@ -84,6 +85,16 @@ def setup_session():
         print("  1. Log into instagram.com and approve any login attempts")
         print("  2. Turn off Two-Factor Authentication in Settings > Security")
         print("  3. Wait 15 minutes and try again")
+        sys.exit(1)
+    except ChallengeUnknownStep as e:
+        print(f"\nERROR: Instagram's challenge flow has changed and is not supported by instagrapi.")
+        print(f"Details: {e}")
+        print()
+        print("ACTION REQUIRED:")
+        print(f"  1. Open instagram.com in a browser and log into @{username}")
+        print(f"  2. Approve the pending login/suspicious activity alert")
+        print(f"  3. Complete any security challenges in the browser")
+        print(f"  4. Run this script again (the API login should work after approval)")
         sys.exit(1)
     except PleaseWaitFewMinutes:
         print("\nERROR: Instagram is rate-limiting. Wait a few minutes and try again.")
